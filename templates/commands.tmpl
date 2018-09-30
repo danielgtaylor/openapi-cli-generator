@@ -1,0 +1,111 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"strings"
+
+	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+{{ $name := .Name }}
+{{ $api := .GoName }}
+
+func {{ $api }}Servers() []map[string]string {
+	return []map[string]string{
+		{{ range $server := .Servers }}
+			map[string]string{
+				"description": "{{ $server.Description }}",
+				"url": "{{ $server.URL }}",
+			},
+		{{ end }}
+	}
+}
+
+func {{ $api }}Register(subcommand bool) {
+	root := cli.Root
+
+	if subcommand {
+		root = &cobra.Command{
+			Use: "{{ $name }}",
+			Short: "{{ .Title }}",
+		}
+	} else {
+		cli.Root.Short = "{{ .Title }}"
+	}
+
+	{{ range $operation := .Operations }}
+		func () {
+			{{ range .OptionalParams }}
+				var {{ .GoName }} {{ .Type }}
+			{{ end }}
+
+			cmd := &cobra.Command{
+				Use: "{{ .Use }}",
+				Short: "{{ .Short }}",
+				Long: "{{ .Long }}",
+				Args: cobra.MinimumNArgs({{ len .RequiredParams }}),
+				Run: func(cmd *cobra.Command, args []string) {
+					url := {{ $api }}Servers()[viper.GetInt("server-index")]["url"]+"{{ .Path }}"
+
+					{{ range $i, $param := .RequiredParams }}
+						{{ if eq $param.In "path" }}
+							url = strings.Replace(url, "{{`{`}}{{ $param.Name }}{{`}`}}", args[{{ $i }}], 1)
+						{{ end }}
+					{{ end }}
+
+					req := cli.Client.{{ .Method }}().URL(url)
+
+					{{ range $i, $param := .RequiredParams }}
+						{{ if eq $param.In "query" }}
+							req = req.AddQuery("{{ .Name }}", args[{{ $i }}])
+						{{ else if eq $param.In "header" }}
+							req = req.AddHeader("{{ .Name }}", args[{{ $i }}])
+						{{ end }}
+					{{ end }}
+
+					{{ range .OptionalParams }}
+						if {{ .GoName }} != {{ .TypeNil }} {
+							{{ if eq .In "query" }}
+								req = req.AddQuery("{{ .Name }}", fmt.Sprintf("%v", {{ .GoName }}))
+							{{ else if eq .In "header" }}
+								req = req.AddHeader("{{ .Name }}", fmt.Sprintf("%v", {{ .GoName }}))
+							{{ end }}
+						}
+					{{ end }}
+
+					{{ if .CanHaveBody }}
+						body, err := cli.GetBody("{{ .MediaType }}", args[{{ len .RequiredParams}}:])
+						if err != nil {
+							panic(err)
+						}
+
+						if body != "" {
+							req = req.AddHeader("Content-Type", "{{ .MediaType }}").BodyString(body)
+						}
+					{{ end }}
+
+					resp, err := req.Do()
+					if err != nil {
+						panic(err)
+					}
+
+					var decoded interface{}
+					if err := cli.Unmarshal(resp, &decoded); err != nil {
+						panic(err)
+					}
+
+					cli.Formatter.Format(decoded)
+				},
+			}
+			root.AddCommand(cmd)
+
+			{{ range .OptionalParams }}
+				cmd.Flags().StringVarP(&{{ .GoName }}, "{{ slug .Name }}", "", "", "{{ .Description }}")
+			{{ end }}
+		}()
+	{{ end }}
+}

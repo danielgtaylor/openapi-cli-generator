@@ -1,0 +1,152 @@
+{
+  // Package shorthand provides a quick way to generate structured data via
+  // command line parameters.
+  package shorthand
+}
+
+ShortHand ← val:Object EOF {
+  return val, nil
+}
+
+Object ← _ vals:(KeyValue (',' _ KeyValue)*) _ {
+  // Collect keys/values into an AST for processing.
+  ast := AST{}
+
+  valsSl := toIfaceSlice(vals)
+  ast = append(ast, valsSl[0].(*KeyValue))
+
+  rest := toIfaceSlice(valsSl[1])
+  for _, item := range rest {
+    itemSl := toIfaceSlice(item)
+
+    ast = append(ast, itemSl[2].(*KeyValue))
+  }
+
+  return ast, nil
+}
+
+KeyValue ← k:Key v:((':' Modifier? _ Value (',' _ ArrayValue &([^:] / !.))*) / ('{' Object '}')) {
+  vSl := toIfaceSlice(v)
+  var value interface{}
+  modifier := modifierNone
+  if vSl[0].([]byte)[0] == ':' {
+    if vSl[1] != nil {
+      modifier = vSl[1].(int)
+    }
+
+    value = vSl[3]
+
+    if modifier == modifierString {
+      if value == nil {
+        value = "null"
+      } else {
+        value = fmt.Sprintf("%v", value)
+      }
+    }
+
+    extra := toIfaceSlice(vSl[4])
+    if len(extra) > 0 {
+      values := &list{value}
+      repeatedWithIndex(extra, 2, func(v interface{}) {
+        if modifier == modifierString {
+          v = fmt.Sprintf("%v", v)
+        }
+        values.Append(v)
+      })
+      value = values
+    } else {
+      if modifier == modifierString {
+        if value == nil {
+          value = "null"
+        } else {
+          value = fmt.Sprintf("%v", value)
+        }
+      }
+    }
+  } else {
+    value = vSl[1]
+  }
+
+  return &KeyValue{
+    PostProcess: modifier == modifierNone,
+    Key: k.(*Key),
+    Value: value,
+  }, nil
+}
+
+Key ← parts:('.'? (KeyPart '.')* KeyPart) {
+  var kps []*KeyPart
+
+  pSl := toIfaceSlice(parts)
+  for _, sub := range toIfaceSlice(pSl[1]) {
+    kps = append(kps, toIfaceSlice(sub)[0].(*KeyPart))
+  }
+
+  kps = append(kps, pSl[2].(*KeyPart))
+
+  key := &Key{
+    ResetContext: pSl[0] == nil,
+    Parts: kps,
+  }
+
+  return key, nil
+}
+
+KeyPart ← label:KeyName index:('[' Int? ']')* {
+  idx := make([]int, 0)
+  repeatedWithIndex(index, 1, func(v interface{}) {
+    if v == nil {
+      idx = append(idx, -1)
+      return
+    }
+
+    idx = append(idx, v.(int))
+  })
+
+  kp := &KeyPart{
+    Key: label.(string),
+    Index: idx,
+  }
+  return kp, nil
+}
+
+KeyName ← [^.:[{]* {
+  return strings.TrimSpace(string(c.text)), nil
+}
+
+Modifier ← [~] {
+  switch c.text[0] {
+  case '~':
+    return modifierString, nil
+  default:
+    return nil, fmt.Errorf("Unknown modifier %v", c.text[0])
+  }
+}
+
+ArrayValue ← Null / Bool / Float / Int / ArrayString
+
+ArrayString ← _ [^[] [^,:}]* {
+  return strings.TrimSpace(string(c.text)), nil
+}
+
+Value ← Null / Bool / Float / Int / String
+
+Null ← "null" { return nil, nil }
+
+Bool ← "true" { return true, nil } / "false" { return false, nil }
+
+Float ← [0-9]+ '.' [0-9]+ {
+  return strconv.ParseFloat(string(c.text), 64)
+}
+
+Int ← [0-9]+ {
+  return strconv.Atoi(string(c.text))
+}
+
+String ← [^,}]* {
+  return strings.TrimSpace(string(c.text)), nil
+}
+
+_ "whitespace" ← [ \t\r\n]*
+
+EOF ← !.
