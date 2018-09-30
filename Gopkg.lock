@@ -42,15 +42,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/alecthomas/template"
-  packages = [
-    ".",
-    "parse"
-  ]
-  revision = "a0175ee3bccc567396460bf5acd36800cb10c49c"
-
-[[projects]]
-  branch = "master"
   name = "github.com/danielgtaylor/kin-openapi"
   packages = ["openapi3"]
   revision = "60e95f1b88c48a8c98824f41ea5cc3c8f2d54e82"
@@ -83,10 +74,10 @@
   version = "v1.4.7"
 
 [[projects]]
-  branch = "master"
   name = "github.com/getkin/kin-openapi"
   packages = ["jsoninfo"]
-  revision = "ee0592e0597619ce5e95954d1f71cde81be0f0b5"
+  revision = "db27d873292dcb033e3ce56f142dfb0ee65d55d4"
+  version = "v0.1.0"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -189,8 +180,8 @@
 [[projects]]
   name = "github.com/spf13/viper"
   packages = ["."]
-  revision = "8fb642006536c8d3760c99d4fa2389f5e2205631"
-  version = "v1.2.0"
+  revision = "2c12c60302a5a0e62ee102ca9bc996277c2f64f5"
+  version = "v1.2.1"
 
 [[projects]]
   name = "github.com/stretchr/testify"
@@ -230,13 +221,13 @@
     "idna",
     "publicsuffix"
   ]
-  revision = "2f5d2388922f370f4355f327fcf4cfe9f5583908"
+  revision = "4dfa2610cdf3b287375bbba5b8f2a14d3b01d8de"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "d47a0f3392421c5624713c9a19fe781f651f8a50"
+  revision = "e4b3c5e9061176387e7cea65e4dc5853801f3fb7"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -288,6 +279,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "85b56fa65183950e9848df3043cbd506566df803148eee0bd9c5b4df581e7c92"
+  inputs-digest = "a0f27ba8709fb0acde3bcd8fa3367c5a789ffb8eced6d7f5c42d07d25ad8d0ab"
   solver-name = "gps-cdcl"
   solver-version = 1
