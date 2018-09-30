@@ -65,14 +65,14 @@ It's possible to supply custom flags and a pre-run function. For example, say yo
 
 ```go
 func main() {
-  // ... init code ...
+	// ... init code ...
 
-  // Add a `--test` flag to enable hitting testing.
+	// Add a `--test` flag to enable hitting testing.
 	cli.AddFlag("test", "", "Use test endpoint", false)
 
 	cli.PreRun = func(cmd *cobra.Command, args []string) error {
 		if viper.GetBool("test") {
-      // Use the test server
+			// Use the test server
 			viper.Set("server-index", 1)
 		}
 }
