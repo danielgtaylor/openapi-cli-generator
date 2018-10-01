@@ -86,6 +86,7 @@ func Init(config *Config) {
 	}
 
 	Client = gentleman.New()
+	UserAgentMiddleware()
 	LogMiddleware()
 
 	Formatter = NewDefaultFormatter(tty)

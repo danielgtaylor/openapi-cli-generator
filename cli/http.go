@@ -45,6 +45,14 @@ func getBody(r io.ReadCloser) (string, io.ReadCloser, error) {
 	return body, newReader, nil
 }
 
+// UserAgentMiddleware sets the user-agent header on requests.
+func UserAgentMiddleware() {
+	Client.UseRequest(func(ctx *context.Context, h context.Handler) {
+		ctx.Request.Header.Set("User-Agent", viper.GetString("app-name")+"-cli-"+Root.Version)
+		h.Next(ctx)
+	})
+}
+
 // LogMiddleware adds verbose log info to HTTP requests.
 func LogMiddleware() {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
