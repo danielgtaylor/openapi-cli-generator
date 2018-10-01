@@ -42,12 +42,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/danielgtaylor/kin-openapi"
-  packages = ["openapi3"]
-  revision = "60e95f1b88c48a8c98824f41ea5cc3c8f2d54e82"
-
-[[projects]]
-  branch = "master"
   name = "github.com/danwakefield/fnmatch"
   packages = ["."]
   revision = "cbb64ac3d964b81592e64f957ad53df015803288"
@@ -75,7 +69,10 @@
 
 [[projects]]
   name = "github.com/getkin/kin-openapi"
-  packages = ["jsoninfo"]
+  packages = [
+    "jsoninfo",
+    "openapi3"
+  ]
   revision = "db27d873292dcb033e3ce56f142dfb0ee65d55d4"
   version = "v0.1.0"
 
@@ -279,6 +276,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a0f27ba8709fb0acde3bcd8fa3367c5a789ffb8eced6d7f5c42d07d25ad8d0ab"
+  inputs-digest = "e2cc4a77b9c2aa125bfe23833174d6e6a7db0cccc199da8dc3ac62fc174d8b8a"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/danielgtaylor/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
 )
 
