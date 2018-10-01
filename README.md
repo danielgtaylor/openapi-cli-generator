@@ -2,6 +2,7 @@
 
 This project can be used to generate CLIs from OpenAPI 3 specs. The generated CLIs have the following features:
 
+- Commands, subcommands, & flag parsing through [Cobra](https://github.com/spf13/cobra)
 - Configuration through [Viper](https://github.com/spf13/viper)
   - JSON, YAML, or TOML config files in `/etc/` and `$HOME`, e.g. `{"verbose": true}` in `~/.my-app/config.json`
   - From environment: `APP_NAME_VERBOSE=1`
