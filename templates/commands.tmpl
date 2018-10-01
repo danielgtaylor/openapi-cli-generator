@@ -49,7 +49,12 @@ func {{ $api }}Register(subcommand bool) {
 				Long: "{{ .Long }}",
 				Args: cobra.MinimumNArgs({{ len .RequiredParams }}),
 				Run: func(cmd *cobra.Command, args []string) {
-					url := {{ $api }}Servers()[viper.GetInt("server-index")]["url"]+"{{ .Path }}"
+					server := viper.GetString("server")
+					if server == "" {
+						server = {{ $api }}Servers()[viper.GetInt("server-index")]["url"]
+					}
+
+					url := server+"{{ .Path }}"
 
 					{{ range $i, $param := .RequiredParams }}
 						{{ if eq $param.In "path" }}
