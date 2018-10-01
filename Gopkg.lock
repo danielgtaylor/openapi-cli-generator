@@ -126,8 +126,8 @@
 [[projects]]
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "fa473d140ef3c6adf42d6b391fe76707f1f243c8"
-  version = "v1.0.0"
+  revision = "4632c4f49fb352596def0d4005bcbe7f38fe9008"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/pelletier/go-toml"
@@ -276,6 +276,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e2cc4a77b9c2aa125bfe23833174d6e6a7db0cccc199da8dc3ac62fc174d8b8a"
+  inputs-digest = "f810503e14e764e901573ed43d3c3e32fdbb395a8420ddbcd68417e18269c3dd"
   solver-name = "gps-cdcl"
   solver-version = 1
