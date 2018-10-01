@@ -32,9 +32,11 @@ func {{ $api }}Register(subcommand bool) {
 		root = &cobra.Command{
 			Use: "{{ $name }}",
 			Short: "{{ .Title }}",
+			Long: cli.Markdown("{{ .Description }}"),
 		}
 	} else {
 		cli.Root.Short = "{{ .Title }}"
+		cli.Root.Long = cli.Markdown("{{ .Description }}")
 	}
 
 	{{ range $operation := .Operations }}
@@ -46,7 +48,7 @@ func {{ $api }}Register(subcommand bool) {
 			cmd := &cobra.Command{
 				Use: "{{ .Use }}",
 				Short: "{{ .Short }}",
-				Long: "{{ .Long }}",
+				Long: cli.Markdown("{{ .Long }}"),
 				Args: cobra.MinimumNArgs({{ len .RequiredParams }}),
 				Run: func(cmd *cobra.Command, args []string) {
 					server := viper.GetString("server")

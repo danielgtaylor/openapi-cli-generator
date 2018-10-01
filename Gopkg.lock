@@ -126,8 +126,8 @@
 [[projects]]
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "4632c4f49fb352596def0d4005bcbe7f38fe9008"
-  version = "v1.1.0"
+  revision = "fe40af7a9c397fa3ddba203c38a5042c5d0475ad"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/pelletier/go-toml"

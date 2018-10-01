@@ -36,6 +36,8 @@ var Formatter ResponseFormatter
 // command handler has been called.
 var PreRun func(cmd *cobra.Command, args []string) error
 
+var tty bool
+
 // Config is used to pass settings to the CLI.
 type Config struct {
 	AppName   string
@@ -67,7 +69,7 @@ func Init(config *Config) {
 	initCache(config.AppName)
 
 	// Determine if we are using a TTY or colored output is forced-on.
-	tty := false
+	tty = false
 	if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) || viper.GetBool("color") {
 		tty = true
 	}
