@@ -125,6 +125,7 @@ func Init(config *Config) {
 	AddFlag("verbose", "", "Enable verbose log output", false)
 	AddFlag("output-format", "o", "Output format [json, yaml]", "json")
 	AddFlag("query", "q", "Filter / project results using JMESPath", "")
+	AddFlag("raw", "", "Output result of query as raw rather than an escaped JSON string", false)
 	AddFlag("server", "", "Override server URL", "")
 }
 

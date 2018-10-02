@@ -76,22 +76,33 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 	var encoded []byte
 	var err error
 	var lexer string
-	if viper.GetString("output-format") == "yaml" {
-		encoded, err = yaml.Marshal(data)
 
-		if err != nil {
-			return err
+	if dStr, ok := data.(string); ok && viper.GetBool("raw") {
+		encoded = []byte(dStr)
+		lexer = ""
+
+		if len(dStr) != 0 && (dStr[0] == '{' || dStr[0] == '[') {
+			// Looks like JSON to me!
+			lexer = "json"
 		}
-
-		lexer = "yaml"
 	} else {
-		encoded, err = json.MarshalIndent(data, "", "  ")
+		if viper.GetString("output-format") == "yaml" {
+			encoded, err = yaml.Marshal(data)
 
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
+
+			lexer = "yaml"
+		} else {
+			encoded, err = json.MarshalIndent(data, "", "  ")
+
+			if err != nil {
+				return err
+			}
+
+			lexer = "json"
 		}
-
-		lexer = "json"
 	}
 
 	// Make sure we end with a newline, otherwise things won't look right
