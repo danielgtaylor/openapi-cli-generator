@@ -36,3 +36,7 @@
 [[constraint]]
   name = "gopkg.in/h2non/gentleman.v2"
   version = "2.0.3"
+
+[[constraint]]
+  name = "github.com/rs/zerolog"
+  version = "1.9.1"

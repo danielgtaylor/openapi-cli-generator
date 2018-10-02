@@ -10,7 +10,7 @@ This project can be used to generate CLIs from OpenAPI 3 specs. The generated CL
 - HTTP middleware through [Gentleman](https://github.com/h2non/gentleman/)
 - Input through `stdin` or [CLI shorthand](https://github.com/danielgtaylor/openapi-cli-generator/tree/master/shorthand)
 - Built-in cache to save data between runs
-- Fast structured logging via [Zap](https://github.com/uber-go/zap)
+- Fast structured logging via [zerolog](https://github.com/rs/zerolog)
 - Built-in support for [Auth0 client credentials](https://auth0.com/docs/api-auth/grant/client-credentials)
 - Pretty output colored by [Chroma](https://github.com/alecthomas/chroma)
 - Response filtering & projection by [JMESPath](http://jmespath.org/)

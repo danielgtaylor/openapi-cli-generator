@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	isatty "github.com/mattn/go-isatty"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	gentleman "gopkg.in/h2non/gentleman.v2"
 )
 
@@ -22,9 +22,6 @@ var Root *cobra.Command
 
 // Cache is used to store temporary data between runs.
 var Cache *viper.Viper
-
-// Log lets you write messages to the console.
-var Log *zap.Logger
 
 // Client makes HTTP requests and parses the responses.
 var Client *gentleman.Client
@@ -74,22 +71,12 @@ func Init(config *Config) {
 		tty = true
 	}
 
-	logCfg := zap.NewDevelopmentConfig()
-	logCfg.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-	logCfg.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
-
-	if tty {
-		logCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	}
-
-	var err error
-	if Log, err = logCfg.Build(); err != nil {
-		panic(err)
-	}
+	zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	log.Logger = log.Output(ConsoleWriter{Out: os.Stderr, NoColor: !tty})
 
 	Client = gentleman.New()
 	UserAgentMiddleware()
-	LogMiddleware()
+	LogMiddleware(tty)
 
 	Formatter = NewDefaultFormatter(tty)
 
@@ -98,7 +85,7 @@ func Init(config *Config) {
 		Version: config.Version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if viper.GetBool("verbose") {
-				logCfg.Level.SetLevel(zap.DebugLevel)
+				zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 				settings := viper.AllSettings()
 
@@ -109,7 +96,7 @@ func Init(config *Config) {
 					}
 				}
 
-				Log.Info(fmt.Sprintf("Configuration: %v", settings))
+				log.Info().Fields(settings).Msg("Configuration")
 			}
 
 			if PreRun != nil {

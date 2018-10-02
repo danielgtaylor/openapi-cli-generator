@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/openapi-cli-generator/shorthand"
+	"github.com/rs/zerolog/log"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -48,7 +49,7 @@ func GetBody(mediaType string, args []string) (string, error) {
 		body = string(input)
 	}
 
-	Log.Debug("Body from stdin is: " + body)
+	log.Debug().Msgf("Body from stdin is: %s", body)
 
 	if len(args) > 0 {
 		bodyInput := strings.Join(args, " ")

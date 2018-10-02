@@ -25,12 +25,17 @@ func init() {
 		chroma.Number:      "#d78700",
 		chroma.String:      "#afd787",
 
+		// Used for HTTP
+		chroma.Name:          "#5fafd7",
+		chroma.NameFunction:  "#ff5f87",
+		chroma.NameNamespace: "#b2b2b2",
+
 		// Used for Markdown
 		chroma.GenericHeading:    "#5fafd7",
 		chroma.GenericSubheading: "#5fafd7",
-		chroma.GenericEmph:       "italic #756ac1",
-		chroma.GenericStrong:     "bold #f1ea83",
-		chroma.GenericDeleted:    "#3e3e3e",
+		chroma.GenericEmph:       "italic #875fd7",
+		chroma.GenericStrong:     "bold #ffd787",
+		chroma.GenericDeleted:    "#3a3a3a",
 		chroma.NameAttribute:     "underline",
 	}))
 }

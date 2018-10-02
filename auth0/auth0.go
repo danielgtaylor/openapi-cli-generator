@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	gentleman "gopkg.in/h2non/gentleman.v2"
@@ -30,20 +31,20 @@ func expiresKey() string {
 
 // getToken tries to get the token from the cache first. If it's not in the
 // cache or the token has expired, we need to refresh it.
-func getToken(issuer string) (token string, err error) {
-	cli.Log.Debug("Using auth profile: " + viper.GetString("profile"))
+func getToken(log *zerolog.Logger, issuer string) (token string, err error) {
+	log.Debug().Msgf("Using auth profile: %s", viper.GetString("profile"))
 
 	if expires := cli.Cache.GetTime(expiresKey()); !expires.IsZero() {
 		token = cli.Cache.GetString(tokenKey())
 
 		if token == "" || time.Now().After(expires) {
-			cli.Log.Debug("Token exipred")
-			if token, err = refreshToken(issuer); err != nil {
+			log.Debug().Msg("Token exipred")
+			if token, err = refreshToken(log, issuer); err != nil {
 				return
 			}
 		}
 	} else {
-		if token, err = refreshToken(issuer); err != nil {
+		if token, err = refreshToken(log, issuer); err != nil {
 			return
 		}
 	}
@@ -52,8 +53,8 @@ func getToken(issuer string) (token string, err error) {
 }
 
 // refreshToken fetches a new token from Auth0.
-func refreshToken(issuer string) (string, error) {
-	cli.Log.Debug("Refreshing Auth0 token")
+func refreshToken(log *zerolog.Logger, issuer string) (string, error) {
+	log.Debug().Msg("Refreshing Auth0 token")
 
 	profile := GetProfile()
 
@@ -166,7 +167,8 @@ func Init(issuer string, extra ...string) {
 		if ctx.Request.Header.Get("Authorization") == "" {
 			// No auth is set, so let's get the token either from a cache
 			// or generate a new one from the issuing server.
-			token, err := getToken(issuer)
+			log := ctx.Get("log").(*zerolog.Logger)
+			token, err := getToken(log, issuer)
 			if err != nil {
 				h.Error(ctx, err)
 				return

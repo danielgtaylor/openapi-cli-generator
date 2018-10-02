@@ -13,8 +13,10 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/alecthomas/chroma/quick"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 	"gopkg.in/h2non/gentleman.v2"
 	"gopkg.in/h2non/gentleman.v2/context"
 )
@@ -23,6 +25,12 @@ import (
 var (
 	ErrCannotUnmarshal = errors.New("Unable to unmarshal response")
 )
+
+func indent(value string) string {
+	trimmed := strings.TrimSuffix(value, "\x1b[0m")
+	trimmed = strings.TrimRight(trimmed, "\n")
+	return "  ╎ " + strings.Replace(trimmed, "\n", "\n  ╎ ", -1) + "\n"
+}
 
 // getBody returns and wraps the request/response body in a new reader, which
 // is useful for logging purposes.
@@ -54,15 +62,20 @@ func UserAgentMiddleware() {
 }
 
 // LogMiddleware adds verbose log info to HTTP requests.
-func LogMiddleware() {
+func LogMiddleware(useColor bool) {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	Client.UseRequest(func(ctx *context.Context, h context.Handler) {
+		l := log.With().Str("request-id", fmt.Sprintf("%x", rnd.Uint64())).Logger()
+		ctx.Set("log", &l)
+
+		h.Next(ctx)
+	})
 
 	Client.UseHandler("before dial", func(ctx *context.Context, h context.Handler) {
 		ctx.Set("start", time.Now())
 
-		l := Log.With(
-			zap.String("request-id", fmt.Sprintf("%x", rnd.Uint64())),
-		)
+		log := ctx.Get("log").(*zerolog.Logger)
 
 		if viper.GetBool("verbose") {
 			headers := ""
@@ -75,18 +88,29 @@ func LogMiddleware() {
 				h.Error(ctx, err)
 				return
 			}
+			if body != "" {
+				body = "\n" + body
+			}
 			ctx.Request.Body = newReader
 
-			l.Debug(fmt.Sprintf("Making request:\n%s %s %s\n%s%s", ctx.Request.Method, ctx.Request.URL, ctx.Request.Proto, headers, body))
-		}
+			http := fmt.Sprintf("%s %s %s\n%s%s", ctx.Request.Method, ctx.Request.URL, ctx.Request.Proto, headers, body)
 
-		ctx.Set("log", l)
+			if useColor {
+				sb := strings.Builder{}
+				if err := quick.Highlight(&sb, http, "http", "terminal256", "cli-dark"); err != nil {
+					h.Error(ctx, err)
+				}
+				http = sb.String()
+			}
+
+			log.Debug().Msgf("Making request:\n%s", indent(http))
+		}
 
 		h.Next(ctx)
 	})
 
 	Client.UseResponse(func(ctx *context.Context, h context.Handler) {
-		l := ctx.Get("log").(*zap.Logger)
+		l := ctx.Get("log").(*zerolog.Logger)
 
 		if viper.GetBool("verbose") {
 			headers := ""
@@ -101,7 +125,17 @@ func LogMiddleware() {
 			}
 			ctx.Response.Body = newReader
 
-			l.Debug(fmt.Sprintf("Got response in %s:\n%s %s\n%s%s", time.Since(ctx.Get("start").(time.Time)), ctx.Response.Proto, ctx.Response.Status, headers, body))
+			http := fmt.Sprintf("%s %s\n%s\n%s", ctx.Response.Proto, ctx.Response.Status, headers, body)
+
+			if useColor {
+				sb := strings.Builder{}
+				if err := quick.Highlight(&sb, http, "http", "terminal256", "cli-dark"); err != nil {
+					h.Error(ctx, err)
+				}
+				http = sb.String()
+			}
+
+			l.Debug().Msgf("Got response in %s:\n%s", time.Since(ctx.Get("start").(time.Time)), indent(http))
 		}
 
 		h.Next(ctx)
