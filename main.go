@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//go:generate go-bindata ./templates/...
+
 type Param struct {
 	Name        string
 	GoName      string
@@ -219,12 +221,8 @@ func getRequestMediaType(op *openapi3.Operation) string {
 }
 
 func initCmd(cmd *cobra.Command, args []string) {
-	tmplData, err := ioutil.ReadFile("templates/main.tmpl")
-	if err != nil {
-		panic(err)
-	}
-
-	tmpl, err := template.New("cli").Parse(string(tmplData))
+	data, _ := Asset("templates/main.tmpl")
+	tmpl, err := template.New("cli").Parse(string(data))
 	if err != nil {
 		panic(err)
 	}
@@ -258,17 +256,13 @@ func generate(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	tmplData, err := ioutil.ReadFile("templates/commands.tmpl")
-	if err != nil {
-		panic(err)
-	}
-
 	funcs := template.FuncMap{
 		"escapeStr": escapeString,
 		"slug":      slug,
 	}
 
-	tmpl, err := template.New("cli").Funcs(funcs).Parse(string(tmplData))
+	data, _ = Asset("templates/commands.tmpl")
+	tmpl, err := template.New("cli").Funcs(funcs).Parse(string(data))
 	if err != nil {
 		panic(err)
 	}

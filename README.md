@@ -83,6 +83,27 @@ func main() {
 
 See the `auth0` module. More docs coming soon.
 
+## Development
+
+### Working with Templates
+
+The code generator is configured to bundle all necessary assets into the final executable by default. If you wish to modify the templates, you can use the `go-bindata` tool to help:
+
+```sh
+# One-time setup of the go-bindata tool:
+$ go get -u github.com/shuLhan/go-bindata/...
+
+# Set up development mode (load data from actual files in ./templates/)
+$ go-bindata -debug ./templates/...
+
+# Now, do all your edits to the templates. You can test with:
+$ go run *.go generate my-api.yaml
+
+# Build the final static embedded files and code generator executable.
+$ go generate
+$ go install
+```
+
 ## License
 
 https://dgt.mit-license.org/
