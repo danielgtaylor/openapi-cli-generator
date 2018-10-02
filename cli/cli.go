@@ -72,7 +72,7 @@ func Init(config *Config) {
 	}
 
 	zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	log.Logger = log.Output(ConsoleWriter{Out: os.Stderr, NoColor: !tty})
+	log.Logger = log.Output(ConsoleWriter{Out: os.Stderr, NoColor: !tty}).With().Caller().Logger()
 
 	Client = gentleman.New()
 	UserAgentMiddleware()

@@ -12,6 +12,7 @@ import (
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/rs/zerolog/log"
 )
 
 {{ $name := .Name }}
@@ -90,7 +91,7 @@ func {{ $api }}Register(subcommand bool) {
 					{{ if .CanHaveBody }}
 						body, err := cli.GetBody("{{ .MediaType }}", args[{{ len .RequiredParams}}:])
 						if err != nil {
-							panic(err)
+							log.Fatal().Err(err).Msg("Unable to get body")
 						}
 
 						if body != "" {
@@ -100,12 +101,12 @@ func {{ $api }}Register(subcommand bool) {
 
 					resp, err := req.Do()
 					if err != nil {
-						panic(err)
+						log.Fatal().Err(err).Msg("Request failed")
 					}
 
 					var decoded interface{}
 					if err := cli.Unmarshal(resp, &decoded); err != nil {
-						panic(err)
+						log.Fatal().Err(err).Msg("Unmarshalling response failed")
 					}
 
 					cli.Formatter.Format(decoded)

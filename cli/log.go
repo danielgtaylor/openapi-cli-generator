@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/rs/zerolog"
 )
@@ -65,20 +65,21 @@ func (w ConsoleWriter) Write(p []byte) (n int, err error) {
 			}
 		}
 	}
-	fmt.Fprintf(buf, "%s %s",
+	fmt.Fprintf(buf, "%s %s %s",
 		colorize(level, lvlColor, !w.NoColor),
+		colorize(path.Base(event[zerolog.CallerFieldName].(string)), cReset, !w.NoColor),
 		colorize(event[zerolog.MessageFieldName], cReset, !w.NoColor))
 	fields := make([]string, 0, len(event))
 	for field := range event {
 		switch field {
-		case zerolog.LevelFieldName, zerolog.TimestampFieldName, zerolog.MessageFieldName:
+		case zerolog.LevelFieldName, zerolog.TimestampFieldName, zerolog.MessageFieldName, zerolog.CallerFieldName:
 			continue
 		}
 		fields = append(fields, field)
 	}
 	sort.Strings(fields)
 	for _, field := range fields {
-		fmt.Fprintf(buf, " %s=", colorize(field, cYellow, !w.NoColor))
+		fmt.Fprintf(buf, " %s=", colorize(field, lvlColor, !w.NoColor))
 		switch value := event[field].(type) {
 		case string:
 			if needsQuote(value) {
@@ -101,17 +102,6 @@ func (w ConsoleWriter) Write(p []byte) (n int, err error) {
 	buf.WriteTo(w.Out)
 	n = len(p)
 	return
-}
-
-func formatTime(t interface{}) string {
-	switch t := t.(type) {
-	case string:
-		return t
-	case json.Number:
-		u, _ := t.Int64()
-		return time.Unix(u, 0).Format(time.RFC3339)
-	}
-	return "<nil>"
 }
 
 func colorize(s interface{}, color int, enabled bool) string {
