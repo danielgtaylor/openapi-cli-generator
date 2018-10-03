@@ -19,7 +19,7 @@ func main() {
 		Use:     fmt.Sprintf("%s [flags] key1: value1, key2: value2, ...", os.Args[0]),
 		Short:   "Generate shorthand structured data",
 		Example: fmt.Sprintf("%s foo.bar: 1, .baz: true", os.Args[0]),
-		Args:    cobra.MinimumNArgs(2),
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			result, err := shorthand.ParseAndBuild("stdin", strings.Join(args, " "))
 			if err != nil {
