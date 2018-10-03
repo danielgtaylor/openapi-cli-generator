@@ -49,10 +49,17 @@ func {{ $api }}Register(subcommand bool) {
 				var {{ .GoName }} {{ .Type }}
 			{{ end }}
 
+			var examples string
+
+			{{ range $ex := .Examples }}
+				examples += "  " + cli.Root.CommandPath() + " {{ $operation.Use }} {{ $ex }}\n"
+			{{ end }}
+
 			cmd := &cobra.Command{
 				Use: "{{ .Use }}",
 				Short: "{{ .Short }}",
 				Long: cli.Markdown("{{ .Long }}"),
+				Example: examples,
 				Args: cobra.MinimumNArgs({{ len .RequiredParams }}),
 				Run: func(cmd *cobra.Command, args []string) {
 					server := viper.GetString("server")

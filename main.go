@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -9,8 +10,10 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/danielgtaylor/openapi-cli-generator/shorthand"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
+	yaml "gopkg.in/yaml.v2"
 )
 
 //go:generate go-bindata ./templates/...
@@ -36,6 +39,7 @@ type Operation struct {
 	RequiredParams []*Param
 	OptionalParams []*Param
 	MediaType      string
+	Examples       []string
 }
 
 type Server struct {
@@ -85,19 +89,63 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 				short = operation.OperationID
 			}
 
+			use := usage(operation.OperationID, requiredParams)
+
+			description := operation.Description
+
+			reqMt, reqSchema, reqExamples := getRequestInfo(operation)
+
+			var examples []string
+			if len(reqExamples) > 0 {
+				wroteHeader := false
+				for _, ex := range reqExamples {
+					if _, ok := ex.(string); !ok {
+						// Not a string, so it's structured data. Let's marshal it to the
+						// shorthand syntax if we can.
+						if m, ok := ex.(map[string]interface{}); ok {
+							ex = shorthand.Get(m)
+							examples = append(examples, ex.(string))
+							continue
+						}
+
+						b, _ := json.Marshal(ex)
+
+						if !wroteHeader {
+							description += "\n## Input Example\n\n"
+							wroteHeader = true
+						}
+
+						description += "\n" + string(b) + "\n"
+						continue
+					}
+
+					if wroteHeader {
+						description += "\n## Input Example\n\n"
+						wroteHeader = true
+					}
+
+					description += "\n" + ex.(string) + "\n"
+				}
+			}
+
+			if reqSchema != "" {
+				description += "\n## Request Schema (" + reqMt + ")\n\n" + reqSchema
+			}
+
 			method := strings.Title(strings.ToLower(method))
 
 			o := &Operation{
-				Use:            usage(operation.OperationID, requiredParams),
+				Use:            use,
 				Short:          short,
-				Long:           escapeString(operation.Description),
+				Long:           escapeString(description),
 				Method:         method,
 				CanHaveBody:    method == "Post" || method == "Put" || method == "Patch",
 				Path:           path,
 				AllParams:      params,
 				RequiredParams: requiredParams,
 				OptionalParams: optionalParams,
-				MediaType:      getRequestMediaType(operation),
+				MediaType:      reqMt,
+				Examples:       examples,
 			}
 
 			result.Operations = append(result.Operations, o)
@@ -208,16 +256,67 @@ func getOptionalParams(allParams []*Param) []*Param {
 	return optional
 }
 
-func getRequestMediaType(op *openapi3.Operation) string {
+func getRequestInfo(op *openapi3.Operation) (string, string, []interface{}) {
+	mts := make(map[string][]interface{})
+
 	if op.RequestBody != nil && op.RequestBody.Value != nil {
-		for m := range op.RequestBody.Value.Content {
-			if strings.Contains(m, "json") {
-				return m
+		for mt, item := range op.RequestBody.Value.Content {
+			var schema string
+			var examples []interface{}
+
+			if item.Schema.Value != nil {
+				// Let's make this a bit more concise. Since it has special JSON
+				// marshalling functions, we do a dance to get it into plain JSON before
+				// converting to YAML.
+				data, err := json.Marshal(item.Schema.Value)
+				if err != nil {
+					continue
+				}
+
+				var unmarshalled interface{}
+				json.Unmarshal(data, &unmarshalled)
+
+				data, err = yaml.Marshal(unmarshalled)
+				if err == nil {
+					schema = string(data)
+				}
 			}
+
+			if item.Example != nil {
+				examples = append(examples, item.Example)
+			} else {
+				for _, ex := range item.Examples {
+					if ex.Value != nil {
+						examples = append(examples, ex.Value.Value)
+						break
+					}
+				}
+			}
+
+			mts[mt] = []interface{}{schema, examples}
 		}
 	}
 
-	return ""
+	// Prefer JSON.
+	for mt, item := range mts {
+		if strings.Contains(mt, "json") {
+			return mt, item[0].(string), item[1].([]interface{})
+		}
+	}
+
+	// Fall back to YAML next.
+	for mt, item := range mts {
+		if strings.Contains(mt, "yaml") {
+			return mt, item[0].(string), item[1].([]interface{})
+		}
+	}
+
+	// Last resort: return the first we find!
+	for mt, item := range mts {
+		return mt, item[0].(string), item[1].([]interface{})
+	}
+
+	return "", "", nil
 }
 
 func initCmd(cmd *cobra.Command, args []string) {
