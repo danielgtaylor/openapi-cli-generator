@@ -103,6 +103,12 @@ $ j empty:~ null, bool:~ true, num:~ 1.5, string:~ hello
   "string": "hello"
 }
 
+# Passing the empty string
+$ j blank:~
+{
+  "blank": ""
+}
+
 # Passing a tilde using whitespace
 $ j foo: ~/Documents
 {
@@ -110,7 +116,7 @@ $ j foo: ~/Documents
 }
 
 # Passing a tilde using forced strings
-$ foo:~~/Documents
+$ j foo:~~/Documents
 {
   "foo": "~/Documents"
 }
