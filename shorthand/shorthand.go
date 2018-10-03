@@ -179,7 +179,9 @@ func Build(ast AST) (map[string]interface{}, error) {
 					// set the value. Otherwise, create a map for the next key part to
 					// use and update the context.
 					if ki < len(k.Parts)-1 {
-						(*ctxSlice)[index] = make(map[string]interface{})
+						if (*ctxSlice)[index] == nil {
+							(*ctxSlice)[index] = make(map[string]interface{})
+						}
 						ctx = (*ctxSlice)[index].(map[string]interface{})
 					} else {
 						(*ctxSlice)[index] = v

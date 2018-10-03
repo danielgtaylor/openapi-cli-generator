@@ -64,6 +64,11 @@ func TestParserListIndex(t *testing.T) {
 		parsed(`foo[3]: three, foo[5]: five, foo[0]: true`))
 }
 
+func TestParserListIndexObject(t *testing.T) {
+	result := parsed(`foo[0].bar: 1, foo[0].baz: 2`)
+	assert.JSONEq(t, `{"foo": [{"bar": 1, "baz": 2}]}`, result)
+}
+
 func TestParserAppendBackRef(t *testing.T) {
 	assert.JSONEq(t, `{"foo": [1, 3], "bar": 2}`, parsed(`foo[]: 1, bar: 2, []: 3`))
 }
