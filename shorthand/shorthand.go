@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"sort"
 	"strings"
 )
 
@@ -202,4 +203,75 @@ func Build(ast AST) (map[string]interface{}, error) {
 	}
 
 	return result, nil
+}
+
+// Get the shorthand representation of an input map.
+func Get(input map[string]interface{}) string {
+	result := renderValue(true, input)
+	return result[1 : len(result)-1]
+}
+
+func renderValue(start bool, value interface{}) string {
+	// Go uses `<nil>` so here we hard-code `null` to match JSON/YAML.
+	if value == nil {
+		return ": null"
+	}
+
+	switch v := value.(type) {
+	case map[string]interface{}:
+		// Special case: foo.bar: 1
+		if !start && len(v) == 1 {
+			for k := range v {
+				return "." + k + renderValue(false, v[k])
+			}
+		}
+
+		// Normal case: foo{a: 1, b: 2}
+		var keys []string
+
+		for k := range v {
+			keys = append(keys, k)
+		}
+
+		sort.Strings(keys)
+
+		var fields []string
+		for _, k := range keys {
+			fields = append(fields, k+renderValue(false, v[k]))
+		}
+
+		return "{" + strings.Join(fields, ", ") + "}"
+	case []interface{}:
+		var items []string
+
+		// Special case: foo: 1, 2, 3
+		scalars := true
+		for _, item := range v {
+			switch item.(type) {
+			case map[string]interface{}:
+				scalars = false
+				break
+			case []interface{}:
+				scalars = false
+				break
+			}
+		}
+
+		if scalars {
+			for _, item := range v {
+				items = append(items, fmt.Sprintf("%v", item))
+			}
+
+			return ": " + strings.Join(items, ", ")
+		}
+
+		// Normal case: foo[]: 1, []{id: 1, count: 2}
+		for _, item := range v {
+			items = append(items, "[]"+renderValue(false, item))
+		}
+
+		return strings.Join(items, ", ")
+	default:
+		return fmt.Sprintf(": %v", v)
+	}
 }

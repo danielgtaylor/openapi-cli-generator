@@ -91,3 +91,78 @@ func TestParserFileForceString(t *testing.T) {
 	result := parsed(`foo: @~testdata/hello.json`)
 	assert.JSONEq(t, `{"foo": "{\n  \"hello\": \"world\"\n}\n"}`, result)
 }
+
+func TestGetShorthandSimple(t *testing.T) {
+	result := Get(map[string]interface{}{
+		"foo": "bar",
+	})
+	assert.Equal(t, "foo: bar", result)
+}
+
+func TestGetShorthandMultiKey(t *testing.T) {
+	result := Get(map[string]interface{}{
+		"foo":   "bar",
+		"hello": "world",
+		"num":   1,
+		"empty": nil,
+		"bool":  false,
+	})
+	assert.Equal(t, "bool: false, empty: null, foo: bar, hello: world, num: 1", result)
+}
+
+func TestGetShorthandNestedSimple(t *testing.T) {
+	result := Get(map[string]interface{}{
+		"foo": map[string]interface{}{
+			"bar": 1,
+		},
+	})
+	assert.Equal(t, "foo.bar: 1", result)
+}
+
+func TestGetShorthandNestedMultiKey(t *testing.T) {
+	result := Get(map[string]interface{}{
+		"foo": map[string]interface{}{
+			"bar": 1,
+			"baz": 2,
+		},
+	})
+	assert.Equal(t, "foo{bar: 1, baz: 2}", result)
+}
+
+func TestGetShorthandListSimple(t *testing.T) {
+	result := Get(map[string]interface{}{
+		"foo": []interface{}{1, 2, 3},
+	})
+	assert.Equal(t, "foo: 1, 2, 3", result)
+}
+
+func TestGetShorthandListOfListScalar(t *testing.T) {
+	result := Get(map[string]interface{}{
+		"foo": []interface{}{
+			[]interface{}{1, 2, 3},
+		},
+	})
+	assert.Equal(t, "foo[]: 1, 2, 3", result)
+}
+
+func TestGetShorthandListOfObjects(t *testing.T) {
+	result := Get(map[string]interface{}{
+		"tags": []interface{}{
+			map[string]interface{}{
+				"id": "tag1",
+				"count": map[string]interface{}{
+					"clicks": 15,
+					"sales":  3,
+				},
+			},
+			map[string]interface{}{
+				"id": "tag2",
+				"count": map[string]interface{}{
+					"clicks": 7,
+					"sales":  4,
+				},
+			},
+		},
+	})
+	assert.Equal(t, "tags[]{count{clicks: 15, sales: 3}, id: tag1}, []{count{clicks: 7, sales: 4}, id: tag2}", result)
+}
