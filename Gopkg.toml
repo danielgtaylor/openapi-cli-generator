@@ -40,3 +40,11 @@
 [[constraint]]
   name = "github.com/rs/zerolog"
   version = "1.9.1"
+
+[[constraint]]
+  name = "github.com/alecthomas/chroma"
+  branch = "master"
+
+[[constraint]]
+  name = "github.com/getkin/kin-openapi"
+  branch = "master"

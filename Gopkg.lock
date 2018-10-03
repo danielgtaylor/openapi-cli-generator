@@ -2,6 +2,7 @@
 
 
 [[projects]]
+  branch = "master"
   name = "github.com/alecthomas/chroma"
   packages = [
     ".",
@@ -37,8 +38,7 @@
     "quick",
     "styles"
   ]
-  revision = "5d7fef2ae60b501bbf28d476c3f273b8017d8261"
-  version = "v0.5.0"
+  revision = "095524152564f863a016c137d17efc785fc7c6a1"
 
 [[projects]]
   branch = "master"
@@ -68,13 +68,13 @@
   version = "v1.4.7"
 
 [[projects]]
+  branch = "master"
   name = "github.com/getkin/kin-openapi"
   packages = [
     "jsoninfo",
     "openapi3"
   ]
-  revision = "db27d873292dcb033e3ce56f142dfb0ee65d55d4"
-  version = "v0.1.0"
+  revision = "44c981756c70d8724edaea8b7662bbb5245088bb"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -182,8 +182,8 @@
 [[projects]]
   name = "github.com/spf13/pflag"
   packages = ["."]
-  revision = "9a97c102cda95a86cec2345a6f09f55a939babf5"
-  version = "v1.0.2"
+  revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
+  version = "v1.0.3"
 
 [[projects]]
   name = "github.com/spf13/viper"
@@ -204,13 +204,13 @@
     "idna",
     "publicsuffix"
   ]
-  revision = "4dfa2610cdf3b287375bbba5b8f2a14d3b01d8de"
+  revision = "f5e5bdd778241bfefa8627f7124c39cd6ad8d74f"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "e4b3c5e9061176387e7cea65e4dc5853801f3fb7"
+  revision = "af653ce8b74f808d092db8ca9741fbb63d2a469d"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -262,6 +262,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "23db61dbb511fc5a272a7fbf937ab4209eb7dd15b9f6c86bdc85a67cc8aad241"
+  inputs-digest = "073442cd89c4cc59f2bb65481ec03478a456619bffa4de78ab8cd22d4f1a01ea"
   solver-name = "gps-cdcl"
   solver-version = 1
