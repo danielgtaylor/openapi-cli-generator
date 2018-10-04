@@ -40,16 +40,16 @@ func GetBody(mediaType string, args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if info.Size() > 0 {
+	if (info.Mode() & os.ModeCharDevice) == 0 {
+		// Data is available on stdin
 		input, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			return "", err
 		}
 
 		body = string(input)
+		log.Debug().Msgf("Body from stdin is: %s", body)
 	}
-
-	log.Debug().Msgf("Body from stdin is: %s", body)
 
 	if len(args) > 0 {
 		bodyInput := strings.Join(args, " ")
