@@ -3,6 +3,7 @@ package auth0
 import (
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
@@ -121,7 +122,7 @@ func Init(issuer string, extra ...string) {
 
 	use := "add-profile [flags] <name> <client-id> <client-secret> <audience>"
 	for _, name := range extra {
-		use += " <" + name + ">"
+		use += " <" + strings.Replace(name, "_", "-", -1) + ">"
 	}
 
 	cmd.AddCommand(&cobra.Command{
@@ -135,7 +136,7 @@ func Init(issuer string, extra ...string) {
 			Creds.Set("profiles."+args[0]+".audience", args[3])
 
 			for i, name := range extra {
-				Creds.Set("profiles."+args[0]+"."+name, args[3+i])
+				Creds.Set("profiles."+args[0]+"."+name, args[4+i])
 			}
 
 			filename := path.Join(viper.GetString("config-directory"), "credentials.json")
