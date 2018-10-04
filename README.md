@@ -30,16 +30,16 @@ Next, make your project directory and generate the commands file.
 $ mkdir my-cli && cd my-cli
 
 # Create the default main file. The app name is used for config and env settings.
-$ openapi-cli-generator init <app-name> | gofmt | goimports >main.go
+$ openapi-cli-generator init <app-name>
 
 # Generate the commands
-$ openapi-cli-generator generate openapi.yaml | gofmt | goimports >commands.go
+$ openapi-cli-generator generate openapi.yaml
 ```
 
 Last, add a line like the following to your `main.go` file:
 
 ```go
-myApiRegister(false)
+openapiRegister(false)
 ```
 
 If you would like to generate a client for many APIs and have each available under their own namespace, pass `true` instead. Next, build your client:

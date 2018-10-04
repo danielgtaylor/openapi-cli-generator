@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"go/format"
 	"io/ioutil"
 	"log"
 	"os"
@@ -319,7 +321,23 @@ func getRequestInfo(op *openapi3.Operation) (string, string, []interface{}) {
 	return "", "", nil
 }
 
+func writeFormattedFile(filename string, data []byte) {
+	formatted, err := format.Source(data)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := ioutil.WriteFile(filename, formatted, 0600); err != nil {
+		panic(err)
+	}
+}
+
 func initCmd(cmd *cobra.Command, args []string) {
+	if _, err := os.Stat("main.go"); err == nil {
+		fmt.Println("Refusing to overwrite existing main.go")
+		return
+	}
+
 	data, _ := Asset("templates/main.tmpl")
 	tmpl, err := template.New("cli").Parse(string(data))
 	if err != nil {
@@ -331,10 +349,13 @@ func initCmd(cmd *cobra.Command, args []string) {
 		"NameEnv": strings.Replace(strings.ToUpper(args[0]), "-", "_", -1),
 	}
 
-	err = tmpl.Execute(os.Stdout, templateData)
+	var sb strings.Builder
+	err = tmpl.Execute(&sb, templateData)
 	if err != nil {
 		panic(err)
 	}
+
+	writeFormattedFile("main.go", []byte(sb.String()))
 }
 
 func generate(cmd *cobra.Command, args []string) {
@@ -370,10 +391,13 @@ func generate(cmd *cobra.Command, args []string) {
 
 	templateData := ProcessAPI(shortName, swagger)
 
-	err = tmpl.Execute(os.Stdout, templateData)
+	var sb strings.Builder
+	err = tmpl.Execute(&sb, templateData)
 	if err != nil {
 		panic(err)
 	}
+
+	writeFormattedFile(shortName+".go", []byte(sb.String()))
 }
 
 func main() {

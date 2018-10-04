@@ -4,15 +4,13 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
+	"fmt"
 	"strings"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/rs/zerolog/log"
 )
 
 {{ $name := .Name }}
