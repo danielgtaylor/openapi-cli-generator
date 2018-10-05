@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -272,6 +273,16 @@ func renderValue(start bool, value interface{}) string {
 
 		return strings.Join(items, ", ")
 	default:
-		return fmt.Sprintf(": %v", v)
+		modifier := ""
+
+		if s, ok := v.(string); ok {
+			_, err := strconv.ParseFloat(s, 64)
+
+			if err == nil || s == "null" || s == "true" || s == "false" {
+				modifier = "~"
+			}
+		}
+
+		return fmt.Sprintf(":%s %v", modifier, v)
 	}
 }

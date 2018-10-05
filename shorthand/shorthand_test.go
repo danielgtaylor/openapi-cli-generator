@@ -166,3 +166,13 @@ func TestGetShorthandListOfObjects(t *testing.T) {
 	})
 	assert.Equal(t, "tags[]{count{clicks: 15, sales: 3}, id: tag1}, []{count{clicks: 7, sales: 4}, id: tag2}", result)
 }
+
+func TestGetShorthandCoerced(t *testing.T) {
+	result := Get(map[string]interface{}{
+		"null": "null",
+		"bool": "true",
+		"num":  "1234",
+		"str":  "hello",
+	})
+	assert.Equal(t, "bool:~ true, null:~ null, num:~ 1234, str: hello", result)
+}
