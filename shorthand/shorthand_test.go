@@ -176,3 +176,11 @@ func TestGetShorthandCoerced(t *testing.T) {
 	})
 	assert.Equal(t, "bool:~ true, null:~ null, num:~ 1234, str: hello", result)
 }
+
+func TestGetShorthandFromFile(t *testing.T) {
+	result := Get(map[string]interface{}{
+		"multi": "I am\na multiline\n value.",
+		"long":  "I am a really long line of text that should probably get loaded from a file",
+	})
+	assert.Equal(t, "long: @file, multi: @file", result)
+}

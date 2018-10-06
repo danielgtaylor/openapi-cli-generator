@@ -281,6 +281,10 @@ func renderValue(start bool, value interface{}) string {
 			if err == nil || s == "null" || s == "true" || s == "false" {
 				modifier = "~"
 			}
+
+			if len(s) > 50 || strings.Contains(s, "\n") {
+				v = "@file"
+			}
 		}
 
 		return fmt.Sprintf(":%s %v", modifier, v)
