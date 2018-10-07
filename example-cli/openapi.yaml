@@ -1,0 +1,24 @@
+openapi: "3"
+info:
+  title: Example API
+  version: "1"
+servers:
+- url: http://localhost:8005
+  description: Test API server.
+paths:
+  /echo:
+    post:
+      operationId: echo
+      description: Echo back body with the same content type.
+      requestBody:
+        content:
+          application/json:
+            example:
+              hello: world
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              example:
+                hello: world

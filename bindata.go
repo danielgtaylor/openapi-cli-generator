@@ -145,7 +145,7 @@ func bindataTemplatesCommandstmpl() (*asset, error) {
 		size: 3400,
 		md5checksum: "",
 		mode: os.FileMode(420),
-		modTime: time.Unix(1538889713, 0),
+		modTime: time.Unix(1538952881, 0),
 	}
 
 	a := &asset{bytes: bytes, info: info}

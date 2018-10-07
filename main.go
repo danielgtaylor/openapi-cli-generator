@@ -305,7 +305,7 @@ func getRequestInfo(op *openapi3.Operation) (string, string, []interface{}) {
 			var schema string
 			var examples []interface{}
 
-			if item.Schema.Value != nil {
+			if item.Schema != nil && item.Schema.Value != nil {
 				// Let's make this a bit more concise. Since it has special JSON
 				// marshalling functions, we do a dance to get it into plain JSON before
 				// converting to YAML.
