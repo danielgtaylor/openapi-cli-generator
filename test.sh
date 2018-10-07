@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 # Build `openapi-cli-generator`
 go generate
 go install
