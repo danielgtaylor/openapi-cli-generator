@@ -68,11 +68,11 @@ The following example shows how you would set up a command that can be invoked b
 
 ```yaml
 paths:
-	/items:
-		get:
-			operationId: ListItems
-			x-cli-aliases:
-			- ls
+  /items:
+    get:
+      operationId: ListItems
+      x-cli-aliases:
+      - ls
 ```
 
 ### Description
@@ -81,9 +81,9 @@ You can override the default description easily:
 
 ```yaml
 paths:
-	/items:
-		description: Some info talking about HTTP headers.
-		x-cli-description: Some info talking about command line arguments.
+  /items:
+    description: Some info talking about HTTP headers.
+    x-cli-description: Some info talking about command line arguments.
 ```
 
 ### Exclusion
@@ -92,11 +92,11 @@ It is possible to exclude paths, operations, and/or parameters from the generate
 
 ```yaml
 paths:
-	/included:
-		description: I will get included in the CLI.
-	/excluded:
-		x-cli-ignore: true
-		description: I will not be in the CLI :-(
+  /included:
+    description: I will get included in the CLI.
+  /excluded:
+    x-cli-ignore: true
+    description: I will not be in the CLI :-(
 ```
 
 ## Customization
