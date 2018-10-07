@@ -52,6 +52,53 @@ $ go install
 $ my-cli --help
 ```
 
+## OpenAPI Extensions
+
+Several extensions properties may be used to change the behavior of the CLI.
+
+Name | Description
+---- | -----------
+`x-cli-aliases` | Sets up command aliases for operations.
+`x-cli-description` | Provide an alternate description for the CLI.
+`x-cli-ignore` | Ignore this path, operation, or parameter.
+
+### Aliases
+
+The following example shows how you would set up a command that can be invoked by either `list-items` or simply `ls`:
+
+```yaml
+paths:
+	/items:
+		get:
+			operationId: ListItems
+			x-cli-aliases:
+			- ls
+```
+
+### Description
+
+You can override the default description easily:
+
+```yaml
+paths:
+	/items:
+		description: Some info talking about HTTP headers.
+		x-cli-description: Some info talking about command line arguments.
+```
+
+### Exclusion
+
+It is possible to exclude paths, operations, and/or parameters from the generated CLI.
+
+```yaml
+paths:
+	/included:
+		description: I will get included in the CLI.
+	/excluded:
+		x-cli-ignore: true
+		description: I will not be in the CLI :-(
+```
+
 ## Customization
 
 Your `main.go` is the entrypoint to your generated CLI, and may be customized to add additional logic and features. For example, you might set custom headers or handle auth before a request goes out on the wire. The `auth0` module provides a sample implementation.
@@ -60,7 +107,7 @@ Your `main.go` is the entrypoint to your generated CLI, and may be customized to
 
 TODO: Show table describing all well-known configuration keys.
 
-### Custom Flags
+### Custom Global Flags
 
 It's possible to supply custom flags and a pre-run function. For example, say your OpenAPI spec has two servers: production and testing. You could add a `--test` flag to select the second server.
 
