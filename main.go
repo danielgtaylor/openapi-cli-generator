@@ -20,6 +20,13 @@ import (
 
 //go:generate go-bindata ./templates/...
 
+// OpenAPI Extensions
+const (
+	ExtAliases     = "x-cli-aliases"
+	ExtIgnore      = "x-cli-ignore"
+	ExtDescription = "x-cli-description"
+)
+
 type Param struct {
 	Name        string
 	GoName      string
@@ -32,6 +39,7 @@ type Param struct {
 
 type Operation struct {
 	Use            string
+	Aliases        []string
 	Short          string
 	Long           string
 	Method         string
@@ -60,11 +68,16 @@ type OpenAPI struct {
 }
 
 func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
+	apiDescription := api.Info.Description
+	if api.Info.Extensions[ExtDescription] != nil {
+		apiDescription = api.Info.Extensions[ExtDescription].(string)
+	}
+
 	result := &OpenAPI{
 		Name:        shortName,
 		GoName:      toGoName(shortName, false),
 		Title:       api.Info.Title,
-		Description: escapeString(api.Info.Description),
+		Description: escapeString(apiDescription),
 	}
 
 	for _, s := range api.Servers {
@@ -82,7 +95,24 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 
 	for _, path := range keys {
 		item := api.Paths[path]
+
+		if item.Extensions[ExtIgnore] != nil {
+			// Ignore this path.
+			continue
+		}
+
 		for method, operation := range item.Operations() {
+			if operation.Extensions[ExtIgnore] != nil {
+				// Ignore this operation.
+				continue
+			}
+
+			var aliases []string
+			if operation.Extensions[ExtAliases] != nil {
+				// We need to decode the raw extension value into our string slice.
+				json.Unmarshal(operation.Extensions[ExtAliases].(json.RawMessage), &aliases)
+			}
+
 			params := getParams(item, method)
 			requiredParams := getRequiredParams(params)
 			optionalParams := getOptionalParams(params)
@@ -94,6 +124,9 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 			use := usage(operation.OperationID, requiredParams)
 
 			description := operation.Description
+			if operation.Extensions[ExtDescription] != nil {
+				description = operation.Extensions[ExtDescription].(string)
+			}
 
 			reqMt, reqSchema, reqExamples := getRequestInfo(operation)
 
@@ -138,6 +171,7 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 
 			o := &Operation{
 				Use:            use,
+				Aliases:        aliases,
 				Short:          short,
 				Long:           escapeString(description),
 				Method:         method,
@@ -219,10 +253,15 @@ func getParams(path *openapi3.PathItem, httpMethod string) []*Param {
 				}
 			}
 
+			description := p.Value.Description
+			if p.Value.Extensions[ExtDescription] != nil {
+				description = p.Value.Extensions[ExtDescription].(string)
+			}
+
 			allParams = append(allParams, &Param{
 				Name:        p.Value.Name,
 				GoName:      toGoName("param "+p.Value.Name, false),
-				Description: p.Value.Description,
+				Description: description,
 				In:          p.Value.In,
 				Required:    p.Value.Required,
 				Type:        t,
@@ -322,12 +361,15 @@ func getRequestInfo(op *openapi3.Operation) (string, string, []interface{}) {
 }
 
 func writeFormattedFile(filename string, data []byte) {
-	formatted, err := format.Source(data)
-	if err != nil {
-		panic(err)
+	formatted, errFormat := format.Source(data)
+	if errFormat != nil {
+		formatted = data
 	}
 
-	if err := ioutil.WriteFile(filename, formatted, 0600); err != nil {
+	err := ioutil.WriteFile(filename, formatted, 0600)
+	if errFormat != nil {
+		panic(errFormat)
+	} else if err != nil {
 		panic(err)
 	}
 }

@@ -55,6 +55,13 @@ func {{ $api }}Register(subcommand bool) {
 
 			cmd := &cobra.Command{
 				Use: "{{ .Use }}",
+				{{- if .Aliases }}
+					Aliases: []string{
+						{{- range .Aliases }}
+							"{{ . }}",
+						{{- end }}
+					},
+				{{- end }}
 				Short: "{{ .Short }}",
 				Long: cli.Markdown("{{ .Long }}"),
 				Example: examples,
