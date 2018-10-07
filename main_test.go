@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 
 func TestEchoSuccess(t *testing.T) {
 	// Call the precompiled executable CLI to hit our test server.
-	out, err := exec.Command("example-cli", "echo", "hello: world").CombinedOutput()
+	out, err := exec.Command("sh", "-c", "example-cli echo hello: world").CombinedOutput()
 	if err != nil {
 		panic(err)
 	}
