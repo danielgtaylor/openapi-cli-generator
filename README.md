@@ -5,6 +5,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/danielgtaylor/openapi-cli-generator)](https://goreportcard.com/report/github.com/danielgtaylor/openapi-cli-generator)
 [![Platforms](https://img.shields.io/badge/platform-win%20%7C%20mac%20%7C%20linux-ligh.svg)](https://github.com/danielgtaylor/openapi-cli-generator/releases)
 
+<img alt="openapi-to-cli" src="https://user-images.githubusercontent.com/106826/46594546-a8bb2480-ca88-11e8-90ec-fb87e51009a8.png">
+
 This project can be used to generate CLIs from OpenAPI 3 specs. The generated CLIs have the following features:
 
 - Commands, subcommands, & flag parsing through [Cobra](https://github.com/spf13/cobra)
