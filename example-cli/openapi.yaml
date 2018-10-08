@@ -10,6 +10,14 @@ paths:
     post:
       operationId: echo
       description: Echo back body with the same content type.
+      parameters:
+      - name: q
+        x-cli-name: echo-query
+        in: query
+      - name: x-request-id
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:

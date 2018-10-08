@@ -31,6 +31,7 @@ const (
 // Param describes an OpenAPI parameter (path, query, header, etc)
 type Param struct {
 	Name        string
+	CLIName     string
 	GoName      string
 	Description string
 	In          string
@@ -62,8 +63,15 @@ type Server struct {
 	// TODO: handle server parameters
 }
 
+// Imports describe optional imports based on features in use.
+type Imports struct {
+	Fmt     bool
+	Strings bool
+}
+
 // OpenAPI describes an API
 type OpenAPI struct {
+	Imports     Imports
 	Name        string
 	GoName      string
 	Title       string
@@ -77,12 +85,12 @@ type OpenAPI struct {
 func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 	apiName := shortName
 	if api.Info.Extensions[ExtName] != nil {
-		apiName = api.Info.Extensions[ExtName].(string)
+		apiName = extStr(api.Info.Extensions[ExtName])
 	}
 
 	apiDescription := api.Info.Description
 	if api.Info.Extensions[ExtDescription] != nil {
-		apiDescription = api.Info.Extensions[ExtDescription].(string)
+		apiDescription = extStr(api.Info.Extensions[ExtDescription])
 	}
 
 	result := &OpenAPI{
@@ -121,7 +129,7 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 
 			name := operation.OperationID
 			if operation.Extensions[ExtName] != nil {
-				name = operation.Extensions[ExtName].(string)
+				name = extStr(operation.Extensions[ExtName])
 			}
 
 			var aliases []string
@@ -142,7 +150,7 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 
 			description := operation.Description
 			if operation.Extensions[ExtDescription] != nil {
-				description = operation.Extensions[ExtDescription].(string)
+				description = extStr(operation.Extensions[ExtDescription])
 			}
 
 			reqMt, reqSchema, reqExamples := getRequestInfo(operation)
@@ -202,10 +210,32 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 			}
 
 			result.Operations = append(result.Operations, o)
+
+			for _, p := range params {
+				if p.In == "path" {
+					result.Imports.Strings = true
+				}
+			}
+
+			for _, p := range optionalParams {
+				if p.In == "query" || p.In == "header" {
+					result.Imports.Fmt = true
+				}
+			}
 		}
 	}
 
 	return result
+}
+
+// extStr returns the string value of an OpenAPI extension stored as a JSON
+// raw message.
+func extStr(i interface{}) (decoded string) {
+	if err := json.Unmarshal(i.(json.RawMessage), &decoded); err != nil {
+		panic(err)
+	}
+
+	return
 }
 
 func toGoName(input string, public bool) string {
@@ -256,7 +286,7 @@ func getParams(path *openapi3.PathItem, httpMethod string) []*Param {
 		if p.Value != nil && p.Value.Extensions["x-cli-ignore"] == nil {
 			t := "string"
 			tn := "\"\""
-			if p.Value.Schema.Value != nil && p.Value.Schema.Value.Type != "" {
+			if p.Value.Schema != nil && p.Value.Schema.Value != nil && p.Value.Schema.Value.Type != "" {
 				switch p.Value.Schema.Value.Type {
 				case "boolean":
 					t = "bool"
@@ -270,19 +300,20 @@ func getParams(path *openapi3.PathItem, httpMethod string) []*Param {
 				}
 			}
 
-			name := p.Value.Name
+			cliName := slug(p.Value.Name)
 			if p.Value.Extensions[ExtName] != nil {
-				name = p.Value.Extensions[ExtName].(string)
+				cliName = extStr(p.Value.Extensions[ExtName])
 			}
 
 			description := p.Value.Description
 			if p.Value.Extensions[ExtDescription] != nil {
-				description = p.Value.Extensions[ExtDescription].(string)
+				description = extStr(p.Value.Extensions[ExtDescription])
 			}
 
 			allParams = append(allParams, &Param{
-				Name:        name,
-				GoName:      toGoName("param "+name, false),
+				Name:        p.Value.Name,
+				CLIName:     cliName,
+				GoName:      toGoName("param "+cliName, false),
 				Description: description,
 				In:          p.Value.In,
 				Required:    p.Value.Required,

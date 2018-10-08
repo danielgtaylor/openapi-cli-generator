@@ -4,8 +4,8 @@
 package main
 
 import (
-	"fmt"
-	"strings"
+	{{ if .Imports.Fmt }}"fmt"{{ end }}
+	{{ if .Imports.Strings }}"strings"{{ end }}
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
 	"github.com/rs/zerolog/log"
@@ -43,9 +43,9 @@ func {{ $api }}Register(subcommand bool) {
 
 	{{ range $operation := .Operations }}
 		func () {
-			{{ range .OptionalParams }}
+			{{- range .OptionalParams }}
 				var {{ .GoName }} {{ .Type }}
-			{{ end }}
+			{{- end }}
 
 			var examples string
 
@@ -90,15 +90,15 @@ func {{ $api }}Register(subcommand bool) {
 						{{ end }}
 					{{ end }}
 
-					{{ range .OptionalParams }}
+					{{- range .OptionalParams }}
 						if {{ .GoName }} != {{ .TypeNil }} {
-							{{ if eq .In "query" }}
+							{{- if eq .In "query" }}
 								req = req.AddQuery("{{ .Name }}", fmt.Sprintf("%v", {{ .GoName }}))
-							{{ else if eq .In "header" }}
+							{{- else if eq .In "header" }}
 								req = req.AddHeader("{{ .Name }}", fmt.Sprintf("%v", {{ .GoName }}))
-							{{ end }}
+							{{- end }}
 						}
-					{{ end }}
+					{{- end }}
 
 					{{ if .CanHaveBody }}
 						body, err := cli.GetBody("{{ .MediaType }}", args[{{ len .RequiredParams}}:])
@@ -126,9 +126,17 @@ func {{ $api }}Register(subcommand bool) {
 			}
 			root.AddCommand(cmd)
 
-			{{ range .OptionalParams }}
-				cmd.Flags().StringVarP(&{{ .GoName }}, "{{ slug .Name }}", "", "", "{{ .Description }}")
-			{{ end }}
+			{{- range .OptionalParams }}
+				{{- if eq .Type "boolean" }}
+					cmd.Flags().BoolVarP(&{{ .GoName }}, "{{ .CLIName }}", "", false, "{{ .Description }}")
+				{{- else if eq .Type "int64" }}
+					cmd.Flags().Int64VarP(&{{ .GoName }}, "{{ .CLIName }}", "", 0, "{{ .Description }}")
+				{{- else if eq .Type "float64" }}
+					cmd.Flags().Float64VarP(&{{ .GoName }}, "{{ .CLIName }}", "", 0.0, "{{ .Description }}")
+				{{- else }}
+					cmd.Flags().StringVarP(&{{ .GoName }}, "{{ .CLIName }}", "", "", "{{ .Description }}")
+				{{- end }}
+			{{- end }}
 		}()
 	{{ end }}
 }

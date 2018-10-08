@@ -3,13 +3,15 @@ package main_test
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"testing"
 
-	"github.com/alecthomas/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -33,7 +35,22 @@ func TestMain(m *testing.M) {
 			w.Header().Add("Content-Type", ct)
 		}
 
-		w.Write(body)
+		// For the test, add the param values to the echoed response.
+		var decoded map[string]interface{}
+		json.Unmarshal(body, &decoded)
+
+		q := r.URL.Query().Get("q")
+		if q != "" {
+			decoded["q"] = q
+		}
+
+		rid := r.Header.Get("X-Request-ID")
+		if rid != "" {
+			decoded["request-id"] = rid
+		}
+
+		marshalled, _ := json.Marshal(decoded)
+		w.Write(marshalled)
 	})
 
 	go func() {
@@ -46,10 +63,11 @@ func TestMain(m *testing.M) {
 
 func TestEchoSuccess(t *testing.T) {
 	// Call the precompiled executable CLI to hit our test server.
-	out, err := exec.Command("sh", "-c", "example-cli echo hello: world").CombinedOutput()
+	out, err := exec.Command("sh", "-c", "example-cli echo hello: world --echo-query=foo --x-request-id bar").CombinedOutput()
 	if err != nil {
+		fmt.Println(string(out))
 		panic(err)
 	}
 
-	assert.Equal(t, "{\n  \"hello\": \"world\"\n}\n\n", string(out))
+	assert.JSONEq(t, "{\"hello\": \"world\", \"q\": \"foo\", \"request-id\": \"bar\"}", string(out))
 }

@@ -4,6 +4,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -35,6 +37,8 @@ func openapiRegister(subcommand bool) {
 	}
 
 	func() {
+		var paramEchoQuery string
+		var paramXRequestId string
 
 		var examples string
 
@@ -55,6 +59,13 @@ func openapiRegister(subcommand bool) {
 				url := server + "/echo"
 
 				req := cli.Client.Post().URL(url)
+
+				if paramEchoQuery != "" {
+					req = req.AddQuery("q", fmt.Sprintf("%v", paramEchoQuery))
+				}
+				if paramXRequestId != "" {
+					req = req.AddHeader("x-request-id", fmt.Sprintf("%v", paramXRequestId))
+				}
 
 				body, err := cli.GetBody("application/json", args[0:])
 				if err != nil {
@@ -79,7 +90,8 @@ func openapiRegister(subcommand bool) {
 			},
 		}
 		root.AddCommand(cmd)
-
+		cmd.Flags().StringVarP(&paramEchoQuery, "echo-query", "", "", "")
+		cmd.Flags().StringVarP(&paramXRequestId, "x-request-id", "", "", "")
 	}()
 
 }
