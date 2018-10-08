@@ -171,7 +171,7 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 						continue
 					}
 
-					if wroteHeader {
+					if !wroteHeader {
 						description += "\n## Input Example\n\n"
 						wroteHeader = true
 					}
