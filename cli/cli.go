@@ -42,8 +42,8 @@ type Config struct {
 	Version   string
 }
 
-// AddFlag will make a new global flag on the root command.
-func AddFlag(name, short, description string, defaultValue interface{}) {
+// AddGlobalFlag will make a new global flag on the root command.
+func AddGlobalFlag(name, short, description string, defaultValue interface{}) {
 	viper.SetDefault(name, defaultValue)
 
 	flags := Root.PersistentFlags()
@@ -109,11 +109,11 @@ func Init(config *Config) {
 		},
 	}
 
-	AddFlag("verbose", "", "Enable verbose log output", false)
-	AddFlag("output-format", "o", "Output format [json, yaml]", "json")
-	AddFlag("query", "q", "Filter / project results using JMESPath", "")
-	AddFlag("raw", "", "Output result of query as raw rather than an escaped JSON string", false)
-	AddFlag("server", "", "Override server URL", "")
+	AddGlobalFlag("verbose", "", "Enable verbose log output", false)
+	AddGlobalFlag("output-format", "o", "Output format [json, yaml]", "json")
+	AddGlobalFlag("query", "q", "Filter / project results using JMESPath", "")
+	AddGlobalFlag("raw", "", "Output result of query as raw rather than an escaped JSON string", false)
+	AddGlobalFlag("server", "", "Override server URL", "")
 }
 
 func userHomeDir() string {

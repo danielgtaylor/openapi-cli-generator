@@ -141,7 +141,7 @@ func main() {
 	// ... init code ...
 
 	// Add a `--test` flag to enable hitting testing.
-	cli.AddFlag("test", "", "Use test endpoint", false)
+	cli.AddGlobalFlag("test", "", "Use test endpoint", false)
 
 	cli.PreRun = func(cmd *cobra.Command, args []string) error {
 		if viper.GetBool("test") {

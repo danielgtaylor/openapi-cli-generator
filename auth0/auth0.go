@@ -111,7 +111,7 @@ func Init(issuer string, extra ...string) {
 	Creds.ReadInConfig()
 
 	// Register a new `--profile` flag.
-	cli.AddFlag("profile", "", "Credentials profile to use for auth", "default")
+	cli.AddGlobalFlag("profile", "", "Credentials profile to use for auth", "default")
 
 	// Register auth management commands to create and list profiles.
 	cmd := &cobra.Command{
