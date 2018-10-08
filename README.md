@@ -111,15 +111,15 @@ You can override the default name for the API, operations, and params:
 
 ```yaml
 info:
-	x-cli-name: foo
+  x-cli-name: foo
 paths:
-	/items:
-		operationId: myOperation
-		x-cli-name: my-op
-		parameters:
-		- name: id
-			x-cli-name: item-id
-			in: query
+  /items:
+    operationId: myOperation
+    x-cli-name: my-op
+    parameters:
+    - name: id
+      x-cli-name: item-id
+      in: query
 ```
 
 With the above, you would be able to call `my-cli my-op --item-id=12`.
