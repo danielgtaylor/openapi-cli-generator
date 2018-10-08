@@ -66,6 +66,7 @@ Name | Description
 `x-cli-aliases` | Sets up command aliases for operations.
 `x-cli-description` | Provide an alternate description for the CLI.
 `x-cli-ignore` | Ignore this path, operation, or parameter.
+`x-cli-name` | Provide an alternate name for the CLI.
 
 ### Aliases
 
@@ -103,6 +104,25 @@ paths:
     x-cli-ignore: true
     description: I will not be in the CLI :-(
 ```
+
+### Name
+
+You can override the default name for the API, operations, and params:
+
+```yaml
+info:
+	x-cli-name: foo
+paths:
+	/items:
+		operationId: myOperation
+		x-cli-name: my-op
+		parameters:
+		- name: id
+			x-cli-name: item-id
+			in: query
+```
+
+With the above, you would be able to call `my-cli my-op --item-id=12`.
 
 ## Customization
 

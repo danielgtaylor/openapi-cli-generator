@@ -23,10 +23,12 @@ import (
 // OpenAPI Extensions
 const (
 	ExtAliases     = "x-cli-aliases"
-	ExtIgnore      = "x-cli-ignore"
 	ExtDescription = "x-cli-description"
+	ExtIgnore      = "x-cli-ignore"
+	ExtName        = "x-cli-name"
 )
 
+// Param describes an OpenAPI parameter (path, query, header, etc)
 type Param struct {
 	Name        string
 	GoName      string
@@ -37,6 +39,7 @@ type Param struct {
 	TypeNil     string
 }
 
+// Operation describes an OpenAPI operation (GET/POST/PUT/PATCH/DELETE)
 type Operation struct {
 	Use            string
 	Aliases        []string
@@ -52,12 +55,14 @@ type Operation struct {
 	Examples       []string
 }
 
+// Server describes an OpenAPI server endpoint
 type Server struct {
 	Description string
 	URL         string
 	// TODO: handle server parameters
 }
 
+// OpenAPI describes an API
 type OpenAPI struct {
 	Name        string
 	GoName      string
@@ -67,14 +72,21 @@ type OpenAPI struct {
 	Operations  []*Operation
 }
 
+// ProcessAPI returns the API description to be used with the commands template
+// for a loaded and dereferenced OpenAPI 3 document.
 func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
+	apiName := shortName
+	if api.Info.Extensions[ExtName] != nil {
+		apiName = api.Info.Extensions[ExtName].(string)
+	}
+
 	apiDescription := api.Info.Description
 	if api.Info.Extensions[ExtDescription] != nil {
 		apiDescription = api.Info.Extensions[ExtDescription].(string)
 	}
 
 	result := &OpenAPI{
-		Name:        shortName,
+		Name:        apiName,
 		GoName:      toGoName(shortName, false),
 		Title:       api.Info.Title,
 		Description: escapeString(apiDescription),
@@ -107,6 +119,11 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 				continue
 			}
 
+			name := operation.OperationID
+			if operation.Extensions[ExtName] != nil {
+				name = operation.Extensions[ExtName].(string)
+			}
+
 			var aliases []string
 			if operation.Extensions[ExtAliases] != nil {
 				// We need to decode the raw extension value into our string slice.
@@ -118,10 +135,10 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 			optionalParams := getOptionalParams(params)
 			short := operation.Summary
 			if short == "" {
-				short = operation.OperationID
+				short = name
 			}
 
-			use := usage(operation.OperationID, requiredParams)
+			use := usage(name, requiredParams)
 
 			description := operation.Description
 			if operation.Extensions[ExtDescription] != nil {
@@ -253,14 +270,19 @@ func getParams(path *openapi3.PathItem, httpMethod string) []*Param {
 				}
 			}
 
+			name := p.Value.Name
+			if p.Value.Extensions[ExtName] != nil {
+				name = p.Value.Extensions[ExtName].(string)
+			}
+
 			description := p.Value.Description
 			if p.Value.Extensions[ExtDescription] != nil {
 				description = p.Value.Extensions[ExtDescription].(string)
 			}
 
 			allParams = append(allParams, &Param{
-				Name:        p.Value.Name,
-				GoName:      toGoName("param "+p.Value.Name, false),
+				Name:        name,
+				GoName:      toGoName("param "+name, false),
 				Description: description,
 				In:          p.Value.In,
 				Required:    p.Value.Required,
