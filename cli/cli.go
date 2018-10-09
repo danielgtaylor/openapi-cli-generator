@@ -109,6 +109,12 @@ func Init(config *Config) {
 		},
 	}
 
+	Root.AddCommand(&cobra.Command{
+		Use:   "help-input",
+		Short: "Show CLI input help",
+		Run:   showHelpInput,
+	})
+
 	AddGlobalFlag("verbose", "", "Enable verbose log output", false)
 	AddGlobalFlag("output-format", "o", "Output format [json, yaml]", "json")
 	AddGlobalFlag("query", "q", "Filter / project results using JMESPath", "")
@@ -169,4 +175,45 @@ func initCache(appName string) {
 	}
 
 	Cache.ReadInConfig()
+}
+
+func showHelpInput(cmd *cobra.Command, args []string) {
+	help := `# CLI Request Input
+
+Input to the CLI is handled via parameters, arguments, and standard input. The help for an individual command shows the available optional parameters and required arguments. Optional parameters can be passed like ¬--option=value¬ or ¬--option value¬.
+
+For requests that require a body, standard input and a CLI shorthand can complement each other to supply the request data.
+
+## Standard Input
+
+Standard input allows you to send in whatever data is required to make a successful request against the API. For example: ¬my-cli command <input.json¬ or ¬echo '{\"hello\": \"world\"}' | my-cli command¬.
+
+## CLI Shortand Syntax
+
+Any arguments beyond those that are required for a command are treated as CLI shorthand and used to generate structured data for requests. Shorthand objects are specified as key/value pairs. They complement standard input so can be used to override or to add additional fields as needed. For example: ¬my-cli command <input.json field: value, other: value2¬.
+
+Null, booleans, integers, and floats are automatically coerced into the appropriate type. Use the ¬~¬ modifier after the ¬:¬ to force a string, like ¬field:~ true¬.
+
+Nested objects use a ¬.¬ separator. Properties can be grouped inside of ¬{¬ and ¬}¬. For example, ¬foo.bar{id: 1, count: 5}¬ will become:
+
+¬¬¬json
+{
+  "foo": {
+    "bar": {
+      "id": 1,
+      "count": 5
+    }
+  }
+}
+¬¬¬
+
+Simple scalar arrays use a ¬,¬ to separate values, like ¬key: 1, 2, 3¬. Appending to an array is possible like ¬key[]: 1, key[]: 2, key[]: 3¬. For nested arrays you specify multiple square bracket sets like ¬key[][]: value¬. You can directly reference an index by including one like ¬key[2]: value¬.
+
+Both objects and arrays can use backreferences. An object backref starts with a ¬.¬ and an array backref starts with ¬[¬. For example, ¬foo{id: 1, count: 5}¬ can be rewritten as ¬foo.id: 1, .count: 5¬.
+
+Use an ¬@¬ to load the contents of a file as the value, like ¬key: @filename¬. Use the ¬~¬ modifier to disable this behavior: ¬key:~ @user¬. By default structured data is loaded when recognized. Use the ¬~¬ filename modifier to force a string: ¬key: @~filename¬. Use the ¬%¬ modifier to load as base-64 data: ¬key: @%filename¬.
+
+See https://github.com/danielgtaylor/openapi-cli-generator/tree/master/shorthand#readme for more info.`
+
+	fmt.Println(Markdown(strings.Replace(help, "¬", "`", -1)))
 }
