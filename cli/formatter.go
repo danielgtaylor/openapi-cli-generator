@@ -17,7 +17,6 @@ func init() {
 	// Simple 256-color theme for JSON/YAML output in a terminal.
 	styles.Register(chroma.MustNewStyle("cli-dark", chroma.StyleEntries{
 		// Used for JSON/YAML
-		chroma.Text:        "#b2b2b2",
 		chroma.Comment:     "#9e9e9e",
 		chroma.Keyword:     "#ff5f87",
 		chroma.Punctuation: "#9e9e9e",
