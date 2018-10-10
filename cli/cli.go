@@ -42,24 +42,6 @@ type Config struct {
 	Version   string
 }
 
-// AddGlobalFlag will make a new global flag on the root command.
-func AddGlobalFlag(name, short, description string, defaultValue interface{}) {
-	viper.SetDefault(name, defaultValue)
-
-	flags := Root.PersistentFlags()
-	switch v := defaultValue.(type) {
-	case bool:
-		flags.BoolP(name, short, viper.GetBool(name), description)
-	case int, int16, int32, int64, uint16, uint32, uint64:
-		flags.IntP(name, short, viper.GetInt(name), description)
-	case float32, float64:
-		flags.Float64P(name, short, viper.GetFloat64(name), description)
-	default:
-		flags.StringP(name, short, fmt.Sprintf("%v", v), description)
-	}
-	viper.BindPFlag(name, flags.Lookup(name))
-}
-
 // Init will set up the CLI.
 func Init(config *Config) {
 	initConfig(config.AppName, config.EnvPrefix)

@@ -15,6 +15,7 @@ This project can be used to generate CLIs from OpenAPI 3 specs. The generated CL
   - From environment: `APP_NAME_VERBOSE=1`
   - From flags: `--verbose`
 - HTTP middleware through [Gentleman](https://github.com/h2non/gentleman/)
+- Command middleware with custom parameters (see customization below)
 - Input through `stdin` or [CLI shorthand](https://github.com/danielgtaylor/openapi-cli-generator/tree/master/shorthand)
 - Built-in cache to save data between runs
 - Fast structured logging via [zerolog](https://github.com/rs/zerolog)
@@ -153,9 +154,60 @@ func main() {
 }
 ```
 
+### HTTP Middleware
+
+[Gentleman](https://github.com/h2non/gentleman/) provides support for HTTP request and response middleware. Don't forget to call `h.Next(ctx)` in your handler! For example:
+
+```go
+// Register a request middleware handler to print the path.
+cli.Client.UseRequest(func(ctx *context.Context, h context.Handler) {
+	fmt.Printf("Request path: %s\n", ctx.Request.URL.Path)
+	h.Next(ctx)
+})
+
+// Register a response middleware handler to print the status code.
+cli.Client.UseResponse(func(ctx *context.Context, h context.Handler) {
+	fmt.Printf("Response status: %d\n", ctx.Response.StatusCode)
+	h.Next(ctx)
+})
+```
+
+### Custom Command Flags & Middleware
+
+While the above HTTP middleware is great for adding headers or logging various things, there are times when you need to modify the behavior of a generated command. You can do so by registering custom command flags and using command middleware.
+
+Flags and middleware are applied to a _command path_, which is a space-separated list of commands in a hierarchy. For example, if you have a command `foo` which has a subcommand `bar`, then the command path to reference `bar` for flags and middleware would be `foo bar`.
+
+Note that any calls to `cli.AddFlag` must be made **before** calling the generated command registration function (e.g. `openapiRegister(...)`) or the flags will not get created properly.
+
+Here's an example showing how a custom flag can change the command response:
+
+```go
+// Register a new custom flag for the `foo` command.
+cli.AddFlag("foo", "custom", "", "description", "")
+
+cli.RegisterAfter("foo", func(cmd *cobra.Command, params *viper.Viper, resp *gentleman.Response, data interface{}) interface{} {
+  m := data.(map[string]interface{})
+  m["custom"] = params.GetString("custom")
+  return m
+})
+
+// Register our generated commands with the CLI after the above.
+openapiRegister(false)
+```
+
+If the `foo` command would normally return a JSON object like `{"hello": "world"}` it would now return the following if called with `--custom=test`:
+
+```json
+{
+  "custom": "test",
+  "hello": "world"
+}
+```
+
 ### Authentication
 
-See the `auth0` module. More docs coming soon.
+See the `auth0` module for an example. More docs coming soon.
 
 ## Development
 

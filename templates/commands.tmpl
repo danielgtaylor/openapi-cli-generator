@@ -43,9 +43,7 @@ func {{ $api }}Register(subcommand bool) {
 
 	{{ range $operation := .Operations }}
 		func () {
-			{{- range .OptionalParams }}
-				var {{ .GoName }} {{ .Type }}
-			{{- end }}
+			params := viper.New()
 
 			var examples string
 
@@ -91,6 +89,7 @@ func {{ $api }}Register(subcommand bool) {
 					{{ end }}
 
 					{{- range .OptionalParams }}
+						{{ .GoName }} := params.Get("{{ .CLIName }}").({{ .Type }})
 						if {{ .GoName }} != {{ .TypeNil }} {
 							{{- if eq .In "query" }}
 								req = req.AddQuery("{{ .Name }}", fmt.Sprintf("%v", {{ .GoName }}))
@@ -111,6 +110,8 @@ func {{ $api }}Register(subcommand bool) {
 						}
 					{{ end }}
 
+					cli.HandleBefore(cmd, params, req)
+
 					resp, err := req.Do()
 					if err != nil {
 						log.Fatal().Err(err).Msg("Request failed")
@@ -121,6 +122,8 @@ func {{ $api }}Register(subcommand bool) {
 						log.Fatal().Err(err).Msg("Unmarshalling response failed")
 					}
 
+					decoded = cli.HandleAfter(cmd, params, resp, decoded)
+
 					cli.Formatter.Format(decoded)
 				},
 			}
@@ -128,15 +131,21 @@ func {{ $api }}Register(subcommand bool) {
 
 			{{- range .OptionalParams }}
 				{{- if eq .Type "boolean" }}
-					cmd.Flags().BoolVarP(&{{ .GoName }}, "{{ .CLIName }}", "", false, "{{ .Description }}")
+					cmd.Flags().Bool("{{ .CLIName }}", false, "{{ .Description }}")
 				{{- else if eq .Type "int64" }}
-					cmd.Flags().Int64VarP(&{{ .GoName }}, "{{ .CLIName }}", "", 0, "{{ .Description }}")
+					cmd.Flags().Int64("{{ .CLIName }}", 0, "{{ .Description }}")
 				{{- else if eq .Type "float64" }}
-					cmd.Flags().Float64VarP(&{{ .GoName }}, "{{ .CLIName }}", "", 0.0, "{{ .Description }}")
+					cmd.Flags().Float64("{{ .CLIName }}", 0.0, "{{ .Description }}")
 				{{- else }}
-					cmd.Flags().StringVarP(&{{ .GoName }}, "{{ .CLIName }}", "", "", "{{ .Description }}")
+					cmd.Flags().String("{{ .CLIName }}", "", "{{ .Description }}")
 				{{- end }}
 			{{- end }}
+
+			cli.SetCustomFlags(cmd)
+
+			if cmd.Flags().HasFlags() {
+				params.BindPFlags(cmd.Flags())
+			}
 		}()
 	{{ end }}
 }

@@ -37,8 +37,7 @@ func openapiRegister(subcommand bool) {
 	}
 
 	func() {
-		var paramEchoQuery string
-		var paramXRequestId string
+		params := viper.New()
 
 		var examples string
 
@@ -60,9 +59,11 @@ func openapiRegister(subcommand bool) {
 
 				req := cli.Client.Post().URL(url)
 
+				paramEchoQuery := params.Get("echo-query").(string)
 				if paramEchoQuery != "" {
 					req = req.AddQuery("q", fmt.Sprintf("%v", paramEchoQuery))
 				}
+				paramXRequestId := params.Get("x-request-id").(string)
 				if paramXRequestId != "" {
 					req = req.AddHeader("x-request-id", fmt.Sprintf("%v", paramXRequestId))
 				}
@@ -76,6 +77,8 @@ func openapiRegister(subcommand bool) {
 					req = req.AddHeader("Content-Type", "application/json").BodyString(body)
 				}
 
+				cli.HandleBefore(cmd, params, req)
+
 				resp, err := req.Do()
 				if err != nil {
 					log.Fatal().Err(err).Msg("Request failed")
@@ -86,12 +89,20 @@ func openapiRegister(subcommand bool) {
 					log.Fatal().Err(err).Msg("Unmarshalling response failed")
 				}
 
+				decoded = cli.HandleAfter(cmd, params, resp, decoded)
+
 				cli.Formatter.Format(decoded)
 			},
 		}
 		root.AddCommand(cmd)
-		cmd.Flags().StringVarP(&paramEchoQuery, "echo-query", "", "", "")
-		cmd.Flags().StringVarP(&paramXRequestId, "x-request-id", "", "", "")
+		cmd.Flags().String("echo-query", "", "")
+		cmd.Flags().String("x-request-id", "", "")
+
+		cli.SetCustomFlags(cmd)
+
+		if cmd.Flags().HasFlags() {
+			params.BindPFlags(cmd.Flags())
+		}
 	}()
 
 }
