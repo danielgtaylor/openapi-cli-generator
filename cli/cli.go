@@ -137,7 +137,6 @@ func initConfig(appName, envPrefix string) {
 
 	// Save a few things that will be useful elsewhere.
 	viper.Set("app-name", appName)
-	viper.Set("executable", path.Base(os.Args[0]))
 	viper.Set("config-directory", configDir)
 	viper.SetDefault("server-index", 0)
 }

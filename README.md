@@ -9,6 +9,7 @@
 
 This project can be used to generate CLIs from OpenAPI 3 specs. The generated CLIs have the following features:
 
+- Authentication support for API keys and Auth0.
 - Commands, subcommands, & flag parsing through [Cobra](https://github.com/spf13/cobra)
 - Configuration through [Viper](https://github.com/spf13/viper)
   - JSON, YAML, or TOML config files in `/etc/` and `$HOME`, e.g. `{"verbose": true}` in `~/.my-app/config.json`
@@ -129,7 +130,7 @@ With the above, you would be able to call `my-cli my-op --item-id=12`.
 
 ## Customization
 
-Your `main.go` is the entrypoint to your generated CLI, and may be customized to add additional logic and features. For example, you might set custom headers or handle auth before a request goes out on the wire. The `auth0` module provides a sample implementation.
+Your `main.go` is the entrypoint to your generated CLI, and may be customized to add additional logic and features. For example, you might set custom headers or handle auth before a request goes out on the wire. The `apikey` module provides a sample implementation.
 
 ### Configuration Description
 
@@ -207,7 +208,7 @@ If the `foo` command would normally return a JSON object like `{"hello": "world"
 
 ### Authentication
 
-See the `auth0` module for an example. More docs coming soon.
+See the `apikey` module for an example. More docs coming soon.
 
 ## Development
 

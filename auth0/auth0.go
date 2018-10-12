@@ -2,20 +2,14 @@ package auth0
 
 import (
 	"fmt"
-	"path"
-	"strings"
 	"time"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
 	"github.com/rs/zerolog"
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	gentleman "gopkg.in/h2non/gentleman.v2"
 	"gopkg.in/h2non/gentleman.v2/context"
 )
-
-// Creds represent a configuration file storing credential-related information.
-var Creds *viper.Viper
 
 type auth0Token struct {
 	AccessToken string `json:"access_token"`
@@ -57,7 +51,7 @@ func getToken(log *zerolog.Logger, issuer string) (token string, err error) {
 func refreshToken(log *zerolog.Logger, issuer string) (string, error) {
 	log.Debug().Msg("Refreshing Auth0 token")
 
-	profile := GetProfile()
+	profile := cli.GetProfile()
 
 	if len(profile) == 0 {
 		return "", fmt.Errorf("Cannot find profile: %s", viper.GetString("profile"))
@@ -103,66 +97,11 @@ func refreshToken(log *zerolog.Logger, issuer string) (string, error) {
 // have called `cli.Init()`. Pass in profile-related extra variables to store
 // them alongside the default profile information.
 func Init(issuer string, extra ...string) {
-	// Setup a credentials file, kept separate from configuration which might
-	// get checked into source control.
-	Creds = viper.New()
-	Creds.SetConfigName("credentials")
-	Creds.AddConfigPath("$HOME/." + viper.GetString("app-name") + "/")
-	Creds.ReadInConfig()
+	standard := []string{"client-id", "client-secret", "audience"}
 
-	// Register a new `--profile` flag.
-	cli.AddGlobalFlag("profile", "", "Credentials profile to use for auth", "default")
-
-	// Register auth management commands to create and list profiles.
-	cmd := &cobra.Command{
-		Use:   "auth",
-		Short: "Authentication settings",
-	}
-	cli.Root.AddCommand(cmd)
-
-	use := "add-profile [flags] <name> <client-id> <client-secret> <audience>"
-	for _, name := range extra {
-		use += " <" + strings.Replace(name, "_", "-", -1) + ">"
-	}
-
-	cmd.AddCommand(&cobra.Command{
-		Use:     use,
-		Aliases: []string{"add"},
-		Short:   "Add a new named Auth0 profile",
-		Args:    cobra.ExactArgs(4 + len(extra)),
-		Run: func(cmd *cobra.Command, args []string) {
-			Creds.Set("profiles."+args[0]+".client_id", args[1])
-			Creds.Set("profiles."+args[0]+".client_secret", args[2])
-			Creds.Set("profiles."+args[0]+".audience", args[3])
-
-			for i, name := range extra {
-				Creds.Set("profiles."+args[0]+"."+name, args[4+i])
-			}
-
-			filename := path.Join(viper.GetString("config-directory"), "credentials.json")
-			if err := Creds.WriteConfigAs(filename); err != nil {
-				panic(err)
-			}
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:     "list-profiles",
-		Aliases: []string{"ls"},
-		Short:   "List available configured auth profiles",
-		Args:    cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			profiles := Creds.GetStringMap("profiles")
-			if profiles != nil {
-				fmt.Println("Profile (Client ID)")
-				for name, profile := range profiles {
-					fmt.Printf("%s (%s)\n", name, profile.(map[string]interface{})["client_id"].(string))
-				}
-			} else {
-				fmt.Printf("No profiles configured. Use `%s auth add-profile` to add one.\n", viper.GetString("executable"))
-			}
-		},
-	})
+	cli.InitCredentials(
+		cli.ProfileKeys(append(standard, extra...)...),
+		cli.ProfileListKeys("client-id"))
 
 	cli.Client.UseRequest(func(ctx *context.Context, h context.Handler) {
 		if ctx.Request.Header.Get("Authorization") == "" {
@@ -185,9 +124,4 @@ func Init(issuer string, extra ...string) {
 	// cli.Client.UseResponse(func(ctx *context.Context, h context.Handler) {
 	// 	h.Next(ctx)
 	// })
-}
-
-// GetProfile returns the current profile's configuration.
-func GetProfile() map[string]string {
-	return Creds.GetStringMapString("profiles." + viper.GetString("profile"))
 }

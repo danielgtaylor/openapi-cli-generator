@@ -48,3 +48,7 @@
 [[constraint]]
   name = "github.com/getkin/kin-openapi"
   branch = "master"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/olekukonko/tablewriter"
