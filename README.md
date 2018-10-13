@@ -9,7 +9,7 @@
 
 This project can be used to generate CLIs from OpenAPI 3 specs. The generated CLIs have the following features:
 
-- Authentication support for API keys and Auth0.
+- Authentication support for API keys and [Auth0](https://auth0.com/).
 - Commands, subcommands, & flag parsing through [Cobra](https://github.com/spf13/cobra)
 - Configuration through [Viper](https://github.com/spf13/viper)
   - JSON, YAML, or TOML config files in `/etc/` and `$HOME`, e.g. `{"verbose": true}` in `~/.my-app/config.json`
@@ -20,7 +20,6 @@ This project can be used to generate CLIs from OpenAPI 3 specs. The generated CL
 - Input through `stdin` or [CLI shorthand](https://github.com/danielgtaylor/openapi-cli-generator/tree/master/shorthand)
 - Built-in cache to save data between runs
 - Fast structured logging via [zerolog](https://github.com/rs/zerolog)
-- Built-in support for [Auth0 client credentials](https://auth0.com/docs/api-auth/grant/client-credentials)
 - Pretty output colored by [Chroma](https://github.com/alecthomas/chroma)
 - Response filtering & projection by [JMESPath](http://jmespath.org/)
 
