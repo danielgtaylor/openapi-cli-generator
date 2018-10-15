@@ -3,7 +3,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b4e1ed4d0ef96adc7742e65d76877d9b03e6f445624b678e3b8f7c70aaddd887"
+  digest = "1:d382b73844de82455d04ec866507212152ae816637073fff72e1c29b3a95a0bc"
   name = "github.com/alecthomas/chroma"
   packages = [
     ".",
@@ -40,7 +40,7 @@
     "styles",
   ]
   pruneopts = "UT"
-  revision = "c0b13daec9d210031b96190521f2f5c560dfb888"
+  revision = "01e18834b5ddd9869ee9946effe6c23c782fb34b"
 
 [[projects]]
   branch = "master"
@@ -95,6 +95,14 @@
   pruneopts = "UT"
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:97df918963298c287643883209a2c3f642e6593379f97ab400c2a2e219ab647d"
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  pruneopts = "UT"
+  revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
+  version = "v1.2.0"
 
 [[projects]]
   digest = "1:c0d19ab64b32ce9fe5cf4ddceba78d5bc9807f0016db6b1183599da3dcc24d10"
@@ -261,14 +269,28 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a412caf33b5d3c7938c28e1e745c10664bd180277b73ab3b34c0c467886f9969"
+  digest = "1:33b9d71d1dde2106309484a388eb7ba53cd1f67014e34a71f7b3dbc20bd186e5"
   name = "golang.org/x/net"
   packages = [
+    "context",
+    "context/ctxhttp",
     "idna",
     "publicsuffix",
   ]
   pruneopts = "UT"
   revision = "49bb7cea24b1df9410e1712aa6433dae904ff66a"
+
+[[projects]]
+  branch = "master"
+  digest = "1:e1b0362b460a387cfcc0a0ad03debc81d56336d7188584b08f88ad85d08bcb5e"
+  name = "golang.org/x/oauth2"
+  packages = [
+    ".",
+    "clientcredentials",
+    "internal",
+  ]
+  pruneopts = "UT"
+  revision = "c57b0facaced709681d9f90397429b9430a74754"
 
 [[projects]]
   branch = "master"
@@ -300,6 +322,22 @@
   pruneopts = "UT"
   revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
   version = "v0.3.0"
+
+[[projects]]
+  digest = "1:6247f76e55a1e1a5c19a81e2d4b4dff6730461eeb5bbb0a16dd4a8ec8637ee93"
+  name = "google.golang.org/appengine"
+  packages = [
+    "internal",
+    "internal/base",
+    "internal/datastore",
+    "internal/log",
+    "internal/remote_api",
+    "internal/urlfetch",
+    "urlfetch",
+  ]
+  pruneopts = "UT"
+  revision = "ae0ab99deb4dc413a2b4bd6c8bdd0eb67f1e4d06"
+  version = "v1.2.0"
 
 [[projects]]
   digest = "1:7fcbedcdf42d726e69027720ccca6d77cd7df9c430db9c7e3d3343dc97b63b01"
@@ -348,6 +386,8 @@
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
+    "golang.org/x/oauth2",
+    "golang.org/x/oauth2/clientcredentials",
     "gopkg.in/h2non/gentleman.v2",
     "gopkg.in/h2non/gentleman.v2/context",
     "gopkg.in/yaml.v2",
