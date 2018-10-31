@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/alecthomas/chroma"
 	"github.com/alecthomas/chroma/quick"
@@ -81,7 +82,11 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 	var err error
 	var lexer string
 
-	if dStr, ok := data.(string); ok && viper.GetBool("raw") {
+	handled := false
+	kind := reflect.TypeOf(data).Kind()
+	if viper.GetBool("raw") && kind == reflect.String {
+		handled = true
+		dStr := data.(string)
 		encoded = []byte(dStr)
 		lexer = ""
 
@@ -89,7 +94,32 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 			// Looks like JSON to me!
 			lexer = "json"
 		}
-	} else {
+	} else if viper.GetBool("raw") && kind == reflect.Slice {
+		scalars := true
+
+		for _, item := range data.([]interface{}) {
+			switch item.(type) {
+			case nil, bool, float64, string:
+				// pass
+			default:
+				fmt.Printf("Found: %v\n", item)
+				scalars = false
+			}
+		}
+
+		if scalars {
+			handled = true
+			for _, item := range data.([]interface{}) {
+				if item == nil {
+					encoded = append(encoded, []byte("null\n")...)
+				} else {
+					encoded = append(encoded, []byte(fmt.Sprintf("%v\n", item))...)
+				}
+			}
+		}
+	}
+
+	if !handled {
 		if viper.GetString("output-format") == "yaml" {
 			encoded, err = yaml.Marshal(data)
 
