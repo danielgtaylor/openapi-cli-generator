@@ -99,8 +99,8 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 
 		for _, item := range data.([]interface{}) {
 			switch item.(type) {
-			case nil, bool, float64, string:
-				// pass
+			case nil, bool, int, int64, float64, string:
+				// The above are scalars used by decoders
 			default:
 				fmt.Printf("Found: %v\n", item)
 				scalars = false
