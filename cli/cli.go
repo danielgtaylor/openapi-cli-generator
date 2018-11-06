@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -9,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	colorable "github.com/mattn/go-colorable"
 	isatty "github.com/mattn/go-isatty"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -33,6 +35,14 @@ var Formatter ResponseFormatter
 // command handler has been called.
 var PreRun func(cmd *cobra.Command, args []string) error
 
+// Stdout is a cross-platform, color-safe writer if colors are enabled,
+// otherwise it defaults to `os.Stdout`.
+var Stdout io.Writer = os.Stdout
+
+// Stderr is a cross-platform, color-safe writer if colors are enabled,
+// otherwise it defaults to `os.Stderr`.
+var Stderr io.Writer = os.Stderr
+
 var tty bool
 
 // Config is used to pass settings to the CLI.
@@ -53,8 +63,19 @@ func Init(config *Config) {
 		tty = true
 	}
 
+	if viper.GetBool("nocolor") {
+		// If forced off, ignore all of the above!
+		tty = false
+	}
+
+	if tty {
+		// Support colored output across operating systems.
+		Stdout = colorable.NewColorableStdout()
+		Stderr = colorable.NewColorableStderr()
+	}
+
 	zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	log.Logger = log.Output(ConsoleWriter{Out: os.Stderr, NoColor: !tty}).With().Caller().Logger()
+	log.Logger = log.Output(ConsoleWriter{Out: Stderr, NoColor: !tty}).With().Caller().Logger()
 
 	Client = gentleman.New()
 	UserAgentMiddleware()
@@ -90,6 +111,8 @@ func Init(config *Config) {
 			return nil
 		},
 	}
+
+	Root.SetOutput(Stderr)
 
 	Root.AddCommand(&cobra.Command{
 		Use:   "help-input",
@@ -196,5 +219,5 @@ Use an ¬@¬ to load the contents of a file as the value, like ¬key: @filename�
 
 See https://github.com/danielgtaylor/openapi-cli-generator/tree/master/shorthand#readme for more info.`
 
-	fmt.Println(Markdown(strings.Replace(help, "¬", "`", -1)))
+	fmt.Fprintln(Stdout, Markdown(strings.Replace(help, "¬", "`", -1)))
 }

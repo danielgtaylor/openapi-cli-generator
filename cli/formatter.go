@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 
 	"github.com/alecthomas/chroma"
@@ -102,7 +101,6 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 			case nil, bool, int, int64, float64, string:
 				// The above are scalars used by decoders
 			default:
-				fmt.Printf("Found: %v\n", item)
 				scalars = false
 			}
 		}
@@ -147,11 +145,11 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 
 	// Only colorize if we are a TTY.
 	if f.tty {
-		if err = quick.Highlight(os.Stdout, string(encoded), lexer, "terminal256", "cli-dark"); err != nil {
+		if err = quick.Highlight(Stdout, string(encoded), lexer, "terminal256", "cli-dark"); err != nil {
 			return err
 		}
 	} else {
-		fmt.Println(string(encoded))
+		fmt.Fprintln(Stdout, string(encoded))
 	}
 
 	return nil
