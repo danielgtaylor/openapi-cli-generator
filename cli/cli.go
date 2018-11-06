@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	gentleman "gopkg.in/h2non/gentleman.v2"
 )
@@ -115,6 +116,12 @@ func Init(config *Config) {
 	Root.SetOutput(Stderr)
 
 	Root.AddCommand(&cobra.Command{
+		Use:   "help-config",
+		Short: "Show CLI configuration help",
+		Run:   showHelpConfig,
+	})
+
+	Root.AddCommand(&cobra.Command{
 		Use:   "help-input",
 		Short: "Show CLI input help",
 		Run:   showHelpInput,
@@ -181,6 +188,62 @@ func initCache(appName string) {
 	Cache.ReadInConfig()
 }
 
+func showHelpConfig(cmd *cobra.Command, args []string) {
+	help := `# CLI Configuration
+
+Configuration for the CLI comes from the following places:
+
+1. Command options
+2. Environment variables
+3. Configuration files
+
+## Global Command Options
+
+Command options are passed when invoking the command. For example, ¬--verbose¬ configures the CLI to run with additional output for debugging. Using the top level ¬--help¬ to shows a list of available options:
+
+$flags
+
+## Environment Variables
+
+Environment variables must be capitalized, prefixed with ¬$APP¬, and words are separated by an underscore rather than a dash. For example, setting ¬$APP_VERBOSE=1¬ is equivalent to passing ¬--verbose¬ to the command.
+
+## Configuration Files
+
+Configuration files can be used to configure the CLI and can be written using JSON, YAML, or TOML. The CLI searches in your home directory first (e.g. ¬$config-dir/config.json¬) and on Mac/Linux also looks in e.g. ¬/etc/$app/config.json¬. The following is equivalent to passing ¬--verbose¬ to the command:
+
+¬¬¬json
+{
+  "verbose": true
+}
+¬¬¬
+
+## Special Cases
+
+Some configuration values are not exposed as command options but can be set via prefixed environment variables or in configuration files. They are documented here.
+
+Name      | Type   | Description
+--------- | ------ | -----------
+¬color¬   | ¬bool¬ | Force colorized output.
+¬nocolor¬ | ¬bool¬ | Disable colorized output.
+`
+
+	help = strings.Replace(help, "¬", "`", -1)
+	help = strings.Replace(help, "$APP", strings.ToUpper(viper.GetString("app-name")), -1)
+	help = strings.Replace(help, "$app", viper.GetString("app-name"), -1)
+	help = strings.Replace(help, "$config-dir", viper.GetString("config-directory"), -1)
+
+	flags := make([]string, 0)
+	flags = append(flags, "Name            | Type     | Description")
+	flags = append(flags, "--------------- | -------- | -----------")
+	Root.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+		flags = append(flags, fmt.Sprintf("%-15s", "`"+f.Name+"`")+" | `"+fmt.Sprintf("%-7s", f.Value.Type()+"`")+" | "+f.Usage)
+	})
+
+	help = strings.Replace(help, "$flags", strings.Join(flags, "\n"), -1)
+
+	fmt.Fprintln(Stderr, Markdown(help))
+}
+
 func showHelpInput(cmd *cobra.Command, args []string) {
 	help := `# CLI Request Input
 
@@ -219,5 +282,5 @@ Use an ¬@¬ to load the contents of a file as the value, like ¬key: @filename�
 
 See https://github.com/danielgtaylor/openapi-cli-generator/tree/master/shorthand#readme for more info.`
 
-	fmt.Fprintln(Stdout, Markdown(strings.Replace(help, "¬", "`", -1)))
+	fmt.Fprintln(Stderr, Markdown(strings.Replace(help, "¬", "`", -1)))
 }
