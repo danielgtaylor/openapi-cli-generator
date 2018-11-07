@@ -113,7 +113,7 @@ func Init(config *Config) {
 		},
 	}
 
-	Root.SetOutput(Stderr)
+	Root.SetOutput(Stdout)
 
 	Root.AddCommand(&cobra.Command{
 		Use:   "help-config",
@@ -241,7 +241,7 @@ Name      | Type   | Description
 
 	help = strings.Replace(help, "$flags", strings.Join(flags, "\n"), -1)
 
-	fmt.Fprintln(Stderr, Markdown(help))
+	fmt.Fprintln(Stdout, Markdown(help))
 }
 
 func showHelpInput(cmd *cobra.Command, args []string) {
@@ -282,5 +282,5 @@ Use an ¬@¬ to load the contents of a file as the value, like ¬key: @filename�
 
 See https://github.com/danielgtaylor/openapi-cli-generator/tree/master/shorthand#readme for more info.`
 
-	fmt.Fprintln(Stderr, Markdown(strings.Replace(help, "¬", "`", -1)))
+	fmt.Fprintln(Stdout, Markdown(strings.Replace(help, "¬", "`", -1)))
 }
