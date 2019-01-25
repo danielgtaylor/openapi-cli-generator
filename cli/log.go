@@ -57,13 +57,6 @@ func (w ConsoleWriter) Write(p []byte) (n int, err error) {
 			lvlColor = levelColor(l)
 		}
 		level = strings.ToUpper(l)
-		if zerolog.LevelWidth > 0 {
-			if padding := zerolog.LevelWidth - len(level); padding > 0 {
-				level += strings.Repeat(" ", padding)
-			} else {
-				level = level[0:zerolog.LevelWidth]
-			}
-		}
 	}
 	fmt.Fprintf(buf, "%s %s %s",
 		colorize(level, lvlColor, !w.NoColor),
