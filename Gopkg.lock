@@ -204,7 +204,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:6342a41a66687c0d0eb1f4d946447bfb808c5136adeb92903ed07972071e19ac"
+  digest = "1:a073c2dd83aa92060bd5b551e3a19a40f8e24d4aaa7e7da767ee9c69f07b533a"
   name = "github.com/rs/zerolog"
   packages = [
     ".",
@@ -213,8 +213,8 @@
     "log",
   ]
   pruneopts = "UT"
-  revision = "338f9bc14084d22cb8eeacd6492861f8449d715c"
-  version = "v1.9.1"
+  revision = "8747b7b3a51b5d08ee7ac50eaf4869edaf9f714a"
+  version = "v1.11.0"
 
 [[projects]]
   digest = "1:6a4a11ba764a56d2758899ec6f3848d24698d48442ebce85ee7a3f63284526cd"
@@ -268,12 +268,12 @@
   version = "v1.2.1"
 
 [[projects]]
-  digest = "1:18752d0b95816a1b777505a97f71c7467a8445b8ffb55631a7bf779f6ba4fa83"
+  digest = "1:972c2427413d41a1e06ca4897e8528e5a1622894050e2f527b38ddf0f343f759"
   name = "github.com/stretchr/testify"
   packages = ["assert"]
   pruneopts = "UT"
-  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
-  version = "v1.2.2"
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
@@ -393,6 +393,7 @@
     "github.com/rs/zerolog",
     "github.com/rs/zerolog/log",
     "github.com/spf13/cobra",
+    "github.com/spf13/pflag",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "golang.org/x/oauth2",
