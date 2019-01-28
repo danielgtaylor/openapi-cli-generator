@@ -255,6 +255,8 @@ For requests that require a body, standard input and a CLI shorthand can complem
 
 Standard input allows you to send in whatever data is required to make a successful request against the API. For example: ¬my-cli command <input.json¬ or ¬echo '{\"hello\": \"world\"}' | my-cli command¬.
 
+Note: Windows PowerShell and other shells that do not support input redirection via ¬<¬ will need to pipe input instead, for example: ¬cat input.json | my-cli command¬. This may load the entire input file into memory.
+
 ## CLI Shortand Syntax
 
 Any arguments beyond those that are required for a command are treated as CLI shorthand and used to generate structured data for requests. Shorthand objects are specified as key/value pairs. They complement standard input so can be used to override or to add additional fields as needed. For example: ¬my-cli command <input.json field: value, other: value2¬.
