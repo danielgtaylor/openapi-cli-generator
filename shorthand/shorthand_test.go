@@ -26,6 +26,14 @@ func TestParseWhitespace(t *testing.T) {
 	assert.JSONEq(t, `{"foo": "hello", "bar": "world"}`, parsed(`foo :    hello   ,    bar:world  `))
 }
 
+func TestParseIP(t *testing.T) {
+	assert.JSONEq(t, `{"foo": "1.2.3.4"}`, parsed(`foo: 1.2.3.4`))
+}
+
+func TestParseTrailingSpace(t *testing.T) {
+	assert.JSONEq(t, `{"foo": {"a": 1}}`, parsed(`foo{a: 1 }`))
+}
+
 func TestParseForceString(t *testing.T) {
 	assert.JSONEq(t, `{"foo": "1"}`, parsed(`foo:~ 1`))
 }
