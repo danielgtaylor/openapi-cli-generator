@@ -139,7 +139,7 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 
 	// Make sure we end with a newline, otherwise things won't look right
 	// in the terminal.
-	if encoded[len(encoded)-1] != '\n' {
+	if len(encoded) > 0 && encoded[len(encoded)-1] != '\n' {
 		encoded = append(encoded, '\n')
 	}
 
