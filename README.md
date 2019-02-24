@@ -69,6 +69,7 @@ Name | Description
 `x-cli-aliases` | Sets up command aliases for operations.
 `x-cli-description` | Provide an alternate description for the CLI.
 `x-cli-ignore` | Ignore this path, operation, or parameter.
+`x-cli-hidden` | Hide this path, or operation.
 `x-cli-name` | Provide an alternate name for the CLI.
 
 ### Aliases
@@ -97,7 +98,7 @@ paths:
 
 ### Exclusion
 
-It is possible to exclude paths, operations, and/or parameters from the generated CLI.
+It is possible to exclude paths, operations, and/or parameters from the generated CLI. No code will be generated as they will be completely skipped.
 
 ```yaml
 paths:
@@ -106,6 +107,14 @@ paths:
   /excluded:
     x-cli-ignore: true
     description: I will not be in the CLI :-(
+```
+
+Alternatively, you can have the path or operation exist in the UI but be hidden from the standard help list. Specific help is still available via `my-cli my-hidden-operation --help`:
+
+```yaml
+paths:
+  /hidden:
+    x-cli-hidden: true
 ```
 
 ### Name

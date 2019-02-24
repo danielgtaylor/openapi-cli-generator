@@ -25,6 +25,7 @@ const (
 	ExtAliases     = "x-cli-aliases"
 	ExtDescription = "x-cli-description"
 	ExtIgnore      = "x-cli-ignore"
+	ExtHidden      = "x-cli-hidden"
 	ExtName        = "x-cli-name"
 )
 
@@ -54,6 +55,7 @@ type Operation struct {
 	OptionalParams []*Param
 	MediaType      string
 	Examples       []string
+	Hidden         bool
 }
 
 // Server describes an OpenAPI server endpoint
@@ -119,6 +121,11 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 		if item.Extensions[ExtIgnore] != nil {
 			// Ignore this path.
 			continue
+		}
+
+		pathHidden := false
+		if item.Extensions[ExtHidden] != nil {
+			json.Unmarshal(item.Extensions[ExtHidden].(json.RawMessage), &pathHidden)
 		}
 
 		for method, operation := range item.Operations() {
@@ -194,6 +201,11 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 
 			method := strings.Title(strings.ToLower(method))
 
+			hidden := pathHidden
+			if operation.Extensions[ExtHidden] != nil {
+				json.Unmarshal(operation.Extensions[ExtHidden].(json.RawMessage), &hidden)
+			}
+
 			o := &Operation{
 				Use:            use,
 				Aliases:        aliases,
@@ -207,6 +219,7 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 				OptionalParams: optionalParams,
 				MediaType:      reqMt,
 				Examples:       examples,
+				Hidden:         hidden,
 			}
 
 			result.Operations = append(result.Operations, o)
