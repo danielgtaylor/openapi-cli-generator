@@ -475,11 +475,7 @@ func generate(cmd *cobra.Command, args []string) {
 	// Load the OpenAPI document.
 	loader := openapi3.NewSwaggerLoader()
 	var swagger *openapi3.Swagger
-	if strings.HasSuffix(args[0], ".yaml") || strings.HasSuffix(args[0], ".yml") {
-		swagger, err = loader.LoadSwaggerFromYAMLData(data)
-	} else {
-		swagger, err = loader.LoadSwaggerFromData(data)
-	}
+	swagger, err = loader.LoadSwaggerFromData(data)
 	if err != nil {
 		log.Fatal(err)
 	}
