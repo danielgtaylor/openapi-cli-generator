@@ -91,7 +91,9 @@ func openapiRegister(subcommand bool) {
 
 				decoded = cli.HandleAfter(cmd, params, resp, decoded)
 
-				cli.Formatter.Format(decoded)
+				if err := cli.Formatter.Format(decoded); err != nil {
+					log.Fatal().Err(err).Msg("Formatting failed")
+				}
 			},
 		}
 		root.AddCommand(cmd)
