@@ -10,12 +10,12 @@ import (
 
 // BeforeHandlerFunc is a function that runs before a command sends a request
 // over the wire. It may modify the request.
-type BeforeHandlerFunc func(*cobra.Command, *viper.Viper, *gentleman.Request)
+type BeforeHandlerFunc func(string, *viper.Viper, *gentleman.Request)
 
 // AfterHandlerFunc is a function that runs after a request has been sent and
 // the response is unmarshalled. It may modify the response. It must return
 // the response data regardless of whether it was modified.
-type AfterHandlerFunc func(*cobra.Command, *viper.Viper, *gentleman.Response, interface{}) interface{}
+type AfterHandlerFunc func(string, *viper.Viper, *gentleman.Response, interface{}) interface{}
 
 var beforeRegistry = make(map[string][]BeforeHandlerFunc)
 var afterRegistry = make(map[string][]AfterHandlerFunc)
@@ -53,24 +53,20 @@ func commandPath(cmd *cobra.Command) string {
 }
 
 // HandleBefore runs any registered pre-request handlers for the given command.
-func HandleBefore(cmd *cobra.Command, params *viper.Viper, r *gentleman.Request) {
-	path := commandPath(cmd)
-
+func HandleBefore(path string, params *viper.Viper, r *gentleman.Request) {
 	if handlers, ok := beforeRegistry[path]; ok {
 		for _, handler := range handlers {
-			handler(cmd, params, r)
+			handler(path, params, r)
 		}
 	}
 }
 
 // HandleAfter runs any regeistered post-request handlers for the given command.
-func HandleAfter(cmd *cobra.Command, params *viper.Viper, resp *gentleman.Response, data interface{}) interface{} {
-	path := commandPath(cmd)
-
+func HandleAfter(path string, params *viper.Viper, resp *gentleman.Response, data interface{}) interface{} {
 	tmp := data
 	if handlers, ok := afterRegistry[path]; ok {
 		for _, handler := range handlers {
-			tmp = handler(cmd, params, resp, tmp)
+			tmp = handler(path, params, resp, tmp)
 		}
 	}
 

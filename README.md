@@ -71,6 +71,7 @@ Name | Description
 `x-cli-ignore` | Ignore this path, operation, or parameter.
 `x-cli-hidden` | Hide this path, or operation.
 `x-cli-name` | Provide an alternate name for the CLI.
+`x-cli-waiters` | Generate commands/params to wait until a certain state is reached.
 
 ### Aliases
 
@@ -135,6 +136,95 @@ paths:
 ```
 
 With the above, you would be able to call `my-cli my-op --item-id=12`.
+
+### Waiters
+
+Waiters allow you to declaratively define special commands and parameters that will cause a command to block and wait until a particular condition has been met. This is particularly useful for asyncronous operations. For example, you might submit an order and then wait for that order to have been charged successfully before continuing on.
+
+At a high level, waiters consist of an operation and a set of matchers that select a value and compare it to an expectation. For the example above, you might call the `GetOrder` operation every 30 seconds until the response's JSON `status` field is equal to `charged`. Here is what that would look like in your OpenAPI YAML file:
+
+```yaml
+info:
+  title: Orders API
+paths:
+  /order/{id}:
+    get:
+      operationId: GetOrder
+      description: Get an order's details.
+      parameters:
+      - name: id
+        in: path
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['placed', 'charged', 'shipped', 'returned']
+x-cli-waiters:
+  order-charged:
+    delay: 30
+    attempts: 10
+    operationId: GetOrder
+    matchers:
+    - select: response.body#status
+      expected: charged
+```
+
+The generated CLI will work like this: `my-cli wait order-charged $ID` where `$ID` corresponds to the `GetOrder` operation's `id` parameter. It will try to get and match the status 10 times, with a pause of 30 seconds between tries. If it matches, it will exit with a zero status code. If it fails, it will exit with a non-zero exit code and log a message.
+
+This is a great start, but we can make this a little bit friendlier to use. Take a look at this modified waiter configuration:
+
+```yaml
+x-cli-waiters:
+  order-charged:
+    short: Short description for CLI `--help`
+    long: Long description for CLI `--help`
+    delay: 30
+    attempts: 10
+    operationId: GetOrder
+    matchers:
+    - select: response.body#status
+      expected: charged
+    - select: response.status
+      expected: 404
+      state: failure
+    after:
+      CreateOrder:
+        id: response.body#order_id
+```
+
+Here we added two new features:
+
+1. A short-circuit to fail fast. If we type an invalid order ID then we want the command to exit immediately with a non-zero exit code.
+
+2. The `after` block allows us to add a parameter to an *existing* operation to invoke the waiter. This block says that after a call to `CreateOrder` with a `--wait-order-charged` param, it should call the waiter's `GetOrder` operation with the `id` param set to the result of the `response.body#order_id` selector.
+
+You can now create and wait on an order via `my-cli create-order <order.json --wait-order-charged`.
+
+#### Matchers
+
+The following matcher fields are available:
+
+Field | Description | Example
+----- | ----------- | -------
+`select` | The value selection criteria. See the selector table below. | `response.status`
+`test` | The test to perform. Defaults to `equal` but can be set to `any` and `all` to match list items. | `equal`
+`expected` | The expected value | `charged`
+`state` | The state to set. Defaults to `success` but can be set to `failure`. | `success`
+
+The following selectors are available:
+
+Selector | Description | Argument | Example
+-------- | ----------- | -------- | -------
+`request.param` | Request parameter | Parameter name | `request.param#id`
+`request.body` | Request body query | JMESPath query | `request.body#order.id`
+`response.status` | Response HTTP status code | - | `response.status`
+`response.header` | Response HTTP header | Header name | `response.header#content-type`
+`response.body` | Response body query | JMESPath query | `response.body#orders[].status`
 
 ## Customization
 

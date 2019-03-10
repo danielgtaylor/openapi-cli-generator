@@ -27,6 +27,7 @@ const (
 	ExtIgnore      = "x-cli-ignore"
 	ExtHidden      = "x-cli-hidden"
 	ExtName        = "x-cli-name"
+	ExtWaiters     = "x-cli-waiters"
 )
 
 // Param describes an OpenAPI parameter (path, query, header, etc)
@@ -39,10 +40,14 @@ type Param struct {
 	Required    bool
 	Type        string
 	TypeNil     string
+	Style       string
+	Explode     bool
 }
 
 // Operation describes an OpenAPI operation (GET/POST/PUT/PATCH/DELETE)
 type Operation struct {
+	HandlerName    string
+	GoName         string
 	Use            string
 	Aliases        []string
 	Short          string
@@ -56,6 +61,41 @@ type Operation struct {
 	MediaType      string
 	Examples       []string
 	Hidden         bool
+	NeedsResponse  bool
+	Waiters        []*WaiterParams
+}
+
+// Waiter describes a special command that blocks until a condition has been
+// met, after which it exits.
+type Waiter struct {
+	CLIName     string
+	GoName      string
+	Use         string
+	Aliases     []string
+	Short       string
+	Long        string
+	Delay       int
+	Attempts    int
+	OperationID string `json:"operationId"`
+	Operation   *Operation
+	Matchers    []*Matcher
+	After       map[string]map[string]string
+}
+
+// Matcher describes a condition to match for a waiter.
+type Matcher struct {
+	Select   string
+	Test     string
+	Expected json.RawMessage
+	State    string
+}
+
+// WaiterParams links a waiter with param selector querires to perform wait
+// operations after a command has run.
+type WaiterParams struct {
+	Waiter *Waiter
+	Args   []string
+	Params map[string]string
 }
 
 // Server describes an OpenAPI server endpoint
@@ -69,17 +109,20 @@ type Server struct {
 type Imports struct {
 	Fmt     bool
 	Strings bool
+	Time    bool
 }
 
 // OpenAPI describes an API
 type OpenAPI struct {
-	Imports     Imports
-	Name        string
-	GoName      string
-	Title       string
-	Description string
-	Servers     []*Server
-	Operations  []*Operation
+	Imports      Imports
+	Name         string
+	GoName       string
+	PublicGoName string
+	Title        string
+	Description  string
+	Servers      []*Server
+	Operations   []*Operation
+	Waiters      []*Waiter
 }
 
 // ProcessAPI returns the API description to be used with the commands template
@@ -96,10 +139,11 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 	}
 
 	result := &OpenAPI{
-		Name:        apiName,
-		GoName:      toGoName(shortName, false),
-		Title:       api.Info.Title,
-		Description: escapeString(apiDescription),
+		Name:         apiName,
+		GoName:       toGoName(shortName, false),
+		PublicGoName: toGoName(shortName, true),
+		Title:        api.Info.Title,
+		Description:  escapeString(apiDescription),
 	}
 
 	for _, s := range api.Servers {
@@ -108,6 +152,9 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 			URL:         s.URL,
 		})
 	}
+
+	// Convenience map for operation ID -> operation
+	operationMap := make(map[string]*Operation)
 
 	var keys []string
 	for path := range api.Paths {
@@ -207,6 +254,8 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 			}
 
 			o := &Operation{
+				HandlerName:    slug(name),
+				GoName:         toGoName(name, true),
 				Use:            use,
 				Aliases:        aliases,
 				Short:          short,
@@ -222,6 +271,8 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 				Hidden:         hidden,
 			}
 
+			operationMap[operation.OperationID] = o
+
 			result.Operations = append(result.Operations, o)
 
 			for _, p := range params {
@@ -235,6 +286,60 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 					result.Imports.Fmt = true
 				}
 			}
+		}
+	}
+
+	if api.Extensions[ExtWaiters] != nil {
+		var waiters map[string]*Waiter
+
+		if err := json.Unmarshal(api.Extensions[ExtWaiters].(json.RawMessage), &waiters); err != nil {
+			panic(err)
+		}
+
+		for name, waiter := range waiters {
+			waiter.CLIName = slug(name)
+			waiter.GoName = toGoName(name+"-waiter", true)
+			waiter.Operation = operationMap[waiter.OperationID]
+			waiter.Use = usage(name, waiter.Operation.RequiredParams)
+
+			for _, matcher := range waiter.Matchers {
+				if matcher.Test == "" {
+					matcher.Test = "equal"
+				}
+			}
+
+			for operationID, waitOpParams := range waiter.After {
+				op := operationMap[operationID]
+				if op == nil {
+					panic(fmt.Errorf("Unknown waiter operation %s", operationID))
+				}
+
+				var args []string
+				for _, p := range op.RequiredParams {
+					selector := waitOpParams[p.Name]
+					if selector == "" {
+						panic(fmt.Errorf("Missing required parameter %s", p.Name))
+					}
+					delete(waitOpParams, p.Name)
+
+					args = append(args, selector)
+
+					result.Imports.Fmt = true
+					op.NeedsResponse = true
+				}
+
+				op.Waiters = append(op.Waiters, &WaiterParams{
+					Waiter: waiter,
+					Args:   args,
+					Params: waitOpParams,
+				})
+			}
+
+			result.Waiters = append(result.Waiters, waiter)
+		}
+
+		if len(waiters) > 0 {
+			result.Imports.Time = true
 		}
 	}
 
@@ -487,6 +592,7 @@ func generate(cmd *cobra.Command, args []string) {
 	funcs := template.FuncMap{
 		"escapeStr": escapeString,
 		"slug":      slug,
+		"title":     strings.Title,
 	}
 
 	data, _ = Asset("templates/commands.tmpl")

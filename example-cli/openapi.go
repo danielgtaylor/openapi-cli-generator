@@ -7,10 +7,14 @@ import (
 	"fmt"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/h2non/gentleman.v2"
 )
+
+var openapiSubcommand bool
 
 func openapiServers() []map[string]string {
 	return []map[string]string{
@@ -22,6 +26,57 @@ func openapiServers() []map[string]string {
 	}
 }
 
+func OpenapiEcho(args []string, params *viper.Viper) (*gentleman.Response, interface{}, error) {
+	handlerPath := "echo"
+	if openapiSubcommand {
+		handlerPath = "openapi " + handlerPath
+	}
+
+	server := viper.GetString("server")
+	if server == "" {
+		server = openapiServers()[viper.GetInt("server-index")]["url"]
+	}
+
+	url := server + "/echo"
+
+	req := cli.Client.Post().URL(url)
+
+	req = req.AddQuery("q", args[0])
+
+	paramXRequestId := params.GetString("x-request-id")
+	if paramXRequestId != "" {
+		req = req.AddHeader("x-request-id", fmt.Sprintf("%v", paramXRequestId))
+	}
+
+	body, err := cli.GetBody("application/json", args[1:])
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "Unable to get body")
+	}
+
+	if body != "" {
+		req = req.AddHeader("Content-Type", "application/json").BodyString(body)
+	}
+
+	cli.HandleBefore(handlerPath, params, req)
+
+	resp, err := req.Do()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "Request failed")
+	}
+
+	var decoded interface{}
+
+	if resp.StatusCode < 400 {
+		if err := cli.UnmarshalResponse(resp, &decoded); err != nil {
+			return nil, nil, errors.Wrap(err, "Unmarshalling response failed")
+		}
+	}
+
+	decoded = cli.HandleAfter(handlerPath, params, resp, decoded)
+
+	return resp, decoded, nil
+}
+
 func openapiRegister(subcommand bool) {
 	root := cli.Root
 
@@ -31,6 +86,7 @@ func openapiRegister(subcommand bool) {
 			Short: "Example API",
 			Long:  cli.Markdown(""),
 		}
+		openapiSubcommand = true
 	} else {
 		cli.Root.Short = "Example API"
 		cli.Root.Long = cli.Markdown("")
@@ -41,63 +97,28 @@ func openapiRegister(subcommand bool) {
 
 		var examples string
 
-		examples += "  " + cli.Root.CommandPath() + " echo hello: world\n"
+		examples += "  " + cli.Root.CommandPath() + " echo q hello: world\n"
 
 		cmd := &cobra.Command{
-			Use:     "echo",
+			Use:     "echo q",
 			Short:   "echo",
 			Long:    cli.Markdown("Echo back body with the same content type."),
 			Example: examples,
-			Args:    cobra.MinimumNArgs(0),
+			Args:    cobra.MinimumNArgs(1),
 			Run: func(cmd *cobra.Command, args []string) {
-				server := viper.GetString("server")
-				if server == "" {
-					server = openapiServers()[viper.GetInt("server-index")]["url"]
-				}
-
-				url := server + "/echo"
-
-				req := cli.Client.Post().URL(url)
-
-				paramEchoQuery := params.Get("echo-query").(string)
-				if paramEchoQuery != "" {
-					req = req.AddQuery("q", fmt.Sprintf("%v", paramEchoQuery))
-				}
-				paramXRequestId := params.Get("x-request-id").(string)
-				if paramXRequestId != "" {
-					req = req.AddHeader("x-request-id", fmt.Sprintf("%v", paramXRequestId))
-				}
-
-				body, err := cli.GetBody("application/json", args[0:])
+				_, decoded, err := OpenapiEcho(args, params)
 				if err != nil {
-					log.Fatal().Err(err).Msg("Unable to get body")
+					log.Fatal().Err(err).Msg("Error calling operation")
 				}
-
-				if body != "" {
-					req = req.AddHeader("Content-Type", "application/json").BodyString(body)
-				}
-
-				cli.HandleBefore(cmd, params, req)
-
-				resp, err := req.Do()
-				if err != nil {
-					log.Fatal().Err(err).Msg("Request failed")
-				}
-
-				var decoded interface{}
-				if err := cli.Unmarshal(resp, &decoded); err != nil {
-					log.Fatal().Err(err).Msg("Unmarshalling response failed")
-				}
-
-				decoded = cli.HandleAfter(cmd, params, resp, decoded)
 
 				if err := cli.Formatter.Format(decoded); err != nil {
 					log.Fatal().Err(err).Msg("Formatting failed")
 				}
+
 			},
 		}
 		root.AddCommand(cmd)
-		cmd.Flags().String("echo-query", "", "")
+
 		cmd.Flags().String("x-request-id", "", "")
 
 		cli.SetCustomFlags(cmd)
@@ -105,6 +126,7 @@ func openapiRegister(subcommand bool) {
 		if cmd.Flags().HasFlags() {
 			params.BindPFlags(cmd.Flags())
 		}
+
 	}()
 
 }

@@ -6,15 +6,45 @@ package main
 import (
 	{{ if .Imports.Fmt }}"fmt"{{ end }}
 	{{ if .Imports.Strings }}"strings"{{ end }}
+	{{ if .Imports.Time }}"time"{{ end }}
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/h2non/gentleman.v2"
 )
+
+{{ define "params" }}
+	{{- range .OptionalParams }}
+		{{- if eq .Type "boolean" }}
+			cmd.Flags().Bool("{{ .CLIName }}", false, "{{ .Description }}")
+		{{- else if eq .Type "int64" }}
+			cmd.Flags().Int64("{{ .CLIName }}", 0, "{{ .Description }}")
+		{{- else if eq .Type "float64" }}
+			cmd.Flags().Float64("{{ .CLIName }}", 0.0, "{{ .Description }}")
+		{{- else }}
+			cmd.Flags().String("{{ .CLIName }}", "", "{{ .Description }}")
+		{{- end }}
+	{{- end }}
+
+	{{- range .Waiters }}
+		cmd.Flags().Bool("wait-{{ .Waiter.CLIName }}", false, "{{ .Waiter.Short }}")
+	{{- end }}
+
+	cli.SetCustomFlags(cmd)
+
+	if cmd.Flags().HasFlags() {
+		params.BindPFlags(cmd.Flags())
+	}
+{{ end }}
 
 {{ $name := .Name }}
 {{ $api := .GoName }}
+{{ $apiPublic := .PublicGoName }}
+
+var {{ $api }}Subcommand bool
 
 func {{ $api }}Servers() []map[string]string {
 	return []map[string]string{
@@ -27,6 +57,121 @@ func {{ $api }}Servers() []map[string]string {
 	}
 }
 
+{{ range $operation := .Operations }}
+	func {{ $apiPublic }}{{ .GoName }}(args []string, params *viper.Viper) (*gentleman.Response, interface{}, error) {
+		handlerPath := "{{ .HandlerName }}"
+		if {{ $api }}Subcommand {
+			handlerPath = "{{ $name }} " + handlerPath
+		}
+
+		server := viper.GetString("server")
+		if server == "" {
+			server = {{ $api }}Servers()[viper.GetInt("server-index")]["url"]
+		}
+
+		url := server+"{{ .Path }}"
+
+		{{- range $i, $param := .RequiredParams }}
+			{{- if eq $param.In "path" }}
+				url = strings.Replace(url, "{{`{`}}{{ $param.Name }}{{`}`}}", args[{{ $i }}], 1)
+			{{- end }}
+		{{- end }}
+
+		req := cli.Client.{{ .Method }}().URL(url)
+
+		{{ range $i, $param := .RequiredParams }}
+			{{ if eq $param.In "query" }}
+				req = req.AddQuery("{{ .Name }}", args[{{ $i }}])
+			{{ else if eq $param.In "header" }}
+				req = req.AddHeader("{{ .Name }}", args[{{ $i }}])
+			{{ end }}
+		{{ end }}
+
+		{{- range .OptionalParams }}
+			{{ .GoName }} := params.Get{{ .Type | title }}("{{ .CLIName }}")
+			if {{ .GoName }} != {{ .TypeNil }} {
+				{{- if eq .In "query" }}
+					req = req.AddQuery("{{ .Name }}", fmt.Sprintf("%v", {{ .GoName }}))
+				{{- else if eq .In "header" }}
+					req = req.AddHeader("{{ .Name }}", fmt.Sprintf("%v", {{ .GoName }}))
+				{{- end }}
+			}
+		{{- end }}
+
+		{{ if .CanHaveBody }}
+			body, err := cli.GetBody("{{ .MediaType }}", args[{{ len .RequiredParams}}:])
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "Unable to get body")
+			}
+
+			if body != "" {
+				req = req.AddHeader("Content-Type", "{{ .MediaType }}").BodyString(body)
+			}
+		{{ end }}
+
+		cli.HandleBefore(handlerPath, params, req)
+
+		resp, err := req.Do()
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "Request failed")
+		}
+
+		var decoded interface{}
+
+		if resp.StatusCode < 400 {
+			if err := cli.UnmarshalResponse(resp, &decoded); err != nil {
+				return nil, nil, errors.Wrap(err, "Unmarshalling response failed")
+			}
+		}
+
+		decoded = cli.HandleAfter(handlerPath, params, resp, decoded)
+
+		return resp, decoded, nil
+	}
+{{ end }}
+
+{{ range $waiter := .Waiters }}
+	func {{ $apiPublic }}{{ .GoName }}(args []string, params *viper.Viper) error {
+		attempt := 0
+		for attempt < {{ $waiter.Attempts }} {
+			attempt++
+
+			resp, decoded, err := {{ $apiPublic }}{{ .Operation.GoName }}(args, params)
+			if err != nil {
+				return errors.Wrap(err, "Could not call waiter operation")
+			}
+
+			var actual interface{}
+			var match bool
+			{{ range $matcher := .Matchers }}
+				actual, err = cli.GetMatchValue("{{ .Select }}", nil, params.AllSettings(), resp, decoded)
+				if err != nil {
+					return errors.Wrap(err, "Could not get matcher value")
+				}
+
+				match, err = cli.Match("{{ .Test }}", []byte({{ .Expected | printf "%q" }}), actual)
+				if err != nil {
+					return errors.Wrap(err, "Watcher match failure")
+				} else if match {
+					{{ if eq .State "failure" }}
+						return errors.Errorf("Waiter cannot reach desired state because %s is %s", "{{ .Select }}", {{ .Expected | printf "%q" }})
+					{{ else }}
+						break
+					{{ end }}
+				}
+			{{ end }}
+
+			time.Sleep({{ .Delay }}*time.Second)
+		}
+
+		if attempt >= {{ $waiter.Attempts }} {
+			return errors.New("Maximum attempts exceeded")
+		}
+
+		return nil
+	}
+{{ end }}
+
 func {{ $api }}Register(subcommand bool) {
 	root := cli.Root
 
@@ -36,10 +181,47 @@ func {{ $api }}Register(subcommand bool) {
 			Short: "{{ .Title }}",
 			Long: cli.Markdown("{{ .Description }}"),
 		}
+		{{ $api }}Subcommand = true
 	} else {
 		cli.Root.Short = "{{ .Title }}"
 		cli.Root.Long = cli.Markdown("{{ .Description }}")
 	}
+
+	{{ if .Waiters }}
+		wait := &cobra.Command{
+			Use: "wait",
+			Short: "Wait for a certain event or state before returning",
+			Long: "Blocks execution and uses polling to periodically check for a certain event or state before returning",
+		}
+		root.AddCommand(wait)
+
+		{{ range $waiter := .Waiters }}
+			func () {
+				params := viper.New()
+				cmd := &cobra.Command{
+					Use: "{{ .Use }}",
+					{{- if .Aliases }}
+						Aliases: []string{
+							{{- range .Aliases }}
+								"{{ . }}",
+							{{- end }}
+						},
+					{{- end }}
+					Short: "{{ .Short }}",
+					Long: cli.Markdown("{{ .Long }}"),
+					Args: cobra.MinimumNArgs({{ len .Operation.RequiredParams }}),
+					Run: func(cmd *cobra.Command, args []string) {
+						if err := {{ $apiPublic }}{{ .GoName }}(args, params); err != nil {
+							log.Fatal().Err(err).Msg("Error waiting")
+						}
+					},
+				}
+				wait.AddCommand(cmd)
+
+				{{ template "params" .Operation }}
+			}()
+		{{ end }}
+	{{ end }}
 
 	{{ range $operation := .Operations }}
 		func () {
@@ -68,89 +250,62 @@ func {{ $api }}Register(subcommand bool) {
 				Example: examples,
 				Args: cobra.MinimumNArgs({{ len .RequiredParams }}),
 				Run: func(cmd *cobra.Command, args []string) {
-					server := viper.GetString("server")
-					if server == "" {
-						server = {{ $api }}Servers()[viper.GetInt("server-index")]["url"]
-					}
-
-					url := server+"{{ .Path }}"
-
-					{{ range $i, $param := .RequiredParams }}
-						{{ if eq $param.In "path" }}
-							url = strings.Replace(url, "{{`{`}}{{ $param.Name }}{{`}`}}", args[{{ $i }}], 1)
-						{{ end }}
-					{{ end }}
-
-					req := cli.Client.{{ .Method }}().URL(url)
-
-					{{ range $i, $param := .RequiredParams }}
-						{{ if eq $param.In "query" }}
-							req = req.AddQuery("{{ .Name }}", args[{{ $i }}])
-						{{ else if eq $param.In "header" }}
-							req = req.AddHeader("{{ .Name }}", args[{{ $i }}])
-						{{ end }}
-					{{ end }}
-
-					{{- range .OptionalParams }}
-						{{ .GoName }} := params.Get("{{ .CLIName }}").({{ .Type }})
-						if {{ .GoName }} != {{ .TypeNil }} {
-							{{- if eq .In "query" }}
-								req = req.AddQuery("{{ .Name }}", fmt.Sprintf("%v", {{ .GoName }}))
-							{{- else if eq .In "header" }}
-								req = req.AddHeader("{{ .Name }}", fmt.Sprintf("%v", {{ .GoName }}))
-							{{- end }}
-						}
+					{{- if .NeedsResponse }}
+						resp, decoded, err := {{ $apiPublic }}{{ .GoName }}(args, params)
+					{{ else }}
+						_, decoded, err := {{ $apiPublic }}{{ .GoName }}(args, params)
 					{{- end }}
-
-					{{ if .CanHaveBody }}
-						body, err := cli.GetBody("{{ .MediaType }}", args[{{ len .RequiredParams}}:])
-						if err != nil {
-							log.Fatal().Err(err).Msg("Unable to get body")
-						}
-
-						if body != "" {
-							req = req.AddHeader("Content-Type", "{{ .MediaType }}").BodyString(body)
-						}
-					{{ end }}
-
-					cli.HandleBefore(cmd, params, req)
-
-					resp, err := req.Do()
 					if err != nil {
-						log.Fatal().Err(err).Msg("Request failed")
+						log.Fatal().Err(err).Msg("Error calling operation")
 					}
-
-					var decoded interface{}
-					if err := cli.Unmarshal(resp, &decoded); err != nil {
-						log.Fatal().Err(err).Msg("Unmarshalling response failed")
-					}
-
-					decoded = cli.HandleAfter(cmd, params, resp, decoded)
 
 					if err := cli.Formatter.Format(decoded); err != nil {
 						log.Fatal().Err(err).Msg("Formatting failed")
 					}
+
+					{{ if .Waiters }}
+						reqParams := params.AllSettings()
+
+						{{ range $i, $param := $operation.RequiredParams }}
+							reqParams["{{ $param.Name }}"] = args[{{ $i }}]
+						{{ end }}
+
+						var actual interface{}
+					{{- end }}
+
+					{{- range .Waiters }}
+						if params.GetBool("wait-{{ .Waiter.CLIName }}") {
+							wargs := []string{}
+							wparams := viper.New()
+
+							{{- range $selector := .Args }}
+								actual, err = cli.GetMatchValue("{{ $selector }}", nil, reqParams, resp, decoded)
+								if err != nil {
+									log.Fatal().Err(err).Msg("Could not get matcher value")
+								}
+
+								wargs = append(wargs, fmt.Sprintf("%v", actual))
+							{{- end }}
+
+							{{- range $id, $selector := .Params }}
+								actual, err = cli.GetMatchValue("{{ $selector }}", nil, reqParams, resp, decoded)
+								if err != nil {
+									log.Fatal().Err(err).Msg("Could not get matcher value")
+								}
+
+								wparams["{{ $id }}"] = actual
+							{{- end }}
+
+							if err := {{ $apiPublic }}{{ .Waiter.GoName }}(wargs, wparams); err != nil {
+								log.Fatal().Err(err).Msg("Waiter error")
+							}
+						}
+					{{- end }}
 				},
 			}
 			root.AddCommand(cmd)
 
-			{{- range .OptionalParams }}
-				{{- if eq .Type "boolean" }}
-					cmd.Flags().Bool("{{ .CLIName }}", false, "{{ .Description }}")
-				{{- else if eq .Type "int64" }}
-					cmd.Flags().Int64("{{ .CLIName }}", 0, "{{ .Description }}")
-				{{- else if eq .Type "float64" }}
-					cmd.Flags().Float64("{{ .CLIName }}", 0.0, "{{ .Description }}")
-				{{- else }}
-					cmd.Flags().String("{{ .CLIName }}", "", "{{ .Description }}")
-				{{- end }}
-			{{- end }}
-
-			cli.SetCustomFlags(cmd)
-
-			if cmd.Flags().HasFlags() {
-				params.BindPFlags(cmd.Flags())
-			}
+			{{ template "params" . }}
 		}()
 	{{ end }}
 }

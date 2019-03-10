@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"strings"
 	"time"
 
@@ -77,21 +78,25 @@ func LogMiddleware(useColor bool) {
 
 		log := ctx.Get("log").(*zerolog.Logger)
 
+		// Make the request body available to downstream processors through the
+		// request context as `request-body`.
+		body, newReader, err := getBody(ctx.Request.Body)
+		if err != nil {
+			h.Error(ctx, err)
+			return
+		}
+		ctx.Set("request-body", body)
+		ctx.Request.Body = newReader
+
 		if viper.GetBool("verbose") {
 			headers := ""
 			for key, val := range ctx.Request.Header {
 				headers += key + ": " + val[0] + "\n"
 			}
 
-			body, newReader, err := getBody(ctx.Request.Body)
-			if err != nil {
-				h.Error(ctx, err)
-				return
-			}
 			if body != "" {
 				body = "\n" + body
 			}
-			ctx.Request.Body = newReader
 
 			http := fmt.Sprintf("%s %s %s\n%s%s", ctx.Request.Method, ctx.Request.URL, ctx.Request.Proto, headers, body)
 
@@ -142,20 +147,30 @@ func LogMiddleware(useColor bool) {
 	})
 }
 
-// Unmarshal a response into a given structure `s`. Supports both JSON and
-// YAML depending on the response's content-type header.
-func Unmarshal(resp *gentleman.Response, s interface{}) error {
-	data := resp.Bytes()
+// UnmarshalRequest body into a given structure `s`. Supports both JSON and
+// YAML depending on the request's content-type header.
+func UnmarshalRequest(req *gentleman.Request, s interface{}) error {
+	return unmarshalBody(req.Context.Request.Header, []byte(req.Context.GetString("request-body")), s)
+}
 
-	if len(data) == 0 {
-		return nil
-	}
+// UnmarshalResponse into a given structure `s`. Supports both JSON and
+// YAML depending on the response's content-type header.
+func UnmarshalResponse(resp *gentleman.Response, s interface{}) error {
+	data := resp.Bytes()
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("HTTP %d:\n%s", resp.StatusCode, string(data))
 	}
 
-	ct := resp.Header.Get("content-type")
+	return unmarshalBody(resp.Header, data, s)
+}
+
+func unmarshalBody(headers http.Header, data []byte, s interface{}) error {
+	if len(data) == 0 {
+		return nil
+	}
+
+	ct := headers.Get("content-type")
 	if strings.Contains(ct, "json") || strings.Contains(ct, "javascript") {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return err

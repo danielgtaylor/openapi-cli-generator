@@ -21,8 +21,8 @@ func TestCommandMiddleware(t *testing.T) {
 	bar := &cobra.Command{
 		Use: "bar arg3",
 		Run: func(cmd *cobra.Command, args []string) {
-			HandleBefore(cmd, nil, nil)
-			HandleAfter(cmd, nil, nil, nil)
+			HandleBefore("foo bar", nil, nil)
+			HandleAfter("foo bar", nil, nil, nil)
 		},
 	}
 
@@ -32,11 +32,11 @@ func TestCommandMiddleware(t *testing.T) {
 	before := false
 	after := false
 
-	RegisterBefore("foo bar", func(cmd *cobra.Command, params *viper.Viper, r *gentleman.Request) {
+	RegisterBefore("foo bar", func(path string, params *viper.Viper, r *gentleman.Request) {
 		before = true
 	})
 
-	RegisterAfter("foo bar", func(cmd *cobra.Command, param *viper.Viper, resp *gentleman.Response, data interface{}) interface{} {
+	RegisterAfter("foo bar", func(path string, param *viper.Viper, resp *gentleman.Response, data interface{}) interface{} {
 		after = true
 		return data
 	})
