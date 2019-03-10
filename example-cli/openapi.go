@@ -26,7 +26,8 @@ func openapiServers() []map[string]string {
 	}
 }
 
-func OpenapiEcho(args []string, params *viper.Viper) (*gentleman.Response, interface{}, error) {
+// OpenapiEcho echo
+func OpenapiEcho(paramEchoQuery string, params *viper.Viper, body string) (*gentleman.Response, map[string]interface{}, error) {
 	handlerPath := "echo"
 	if openapiSubcommand {
 		handlerPath = "openapi " + handlerPath
@@ -41,16 +42,11 @@ func OpenapiEcho(args []string, params *viper.Viper) (*gentleman.Response, inter
 
 	req := cli.Client.Post().URL(url)
 
-	req = req.AddQuery("q", args[0])
+	req = req.AddQuery("q", paramEchoQuery)
 
 	paramXRequestId := params.GetString("x-request-id")
 	if paramXRequestId != "" {
 		req = req.AddHeader("x-request-id", fmt.Sprintf("%v", paramXRequestId))
-	}
-
-	body, err := cli.GetBody("application/json", args[1:])
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "Unable to get body")
 	}
 
 	if body != "" {
@@ -64,7 +60,7 @@ func OpenapiEcho(args []string, params *viper.Viper) (*gentleman.Response, inter
 		return nil, nil, errors.Wrap(err, "Request failed")
 	}
 
-	var decoded interface{}
+	var decoded map[string]interface{}
 
 	if resp.StatusCode < 400 {
 		if err := cli.UnmarshalResponse(resp, &decoded); err != nil {
@@ -72,7 +68,10 @@ func OpenapiEcho(args []string, params *viper.Viper) (*gentleman.Response, inter
 		}
 	}
 
-	decoded = cli.HandleAfter(handlerPath, params, resp, decoded)
+	after := cli.HandleAfter(handlerPath, params, resp, decoded)
+	if after != nil {
+		decoded = after.(map[string]interface{})
+	}
 
 	return resp, decoded, nil
 }
@@ -106,7 +105,12 @@ func openapiRegister(subcommand bool) {
 			Example: examples,
 			Args:    cobra.MinimumNArgs(1),
 			Run: func(cmd *cobra.Command, args []string) {
-				_, decoded, err := OpenapiEcho(args, params)
+				body, err := cli.GetBody("application/json", args[1:])
+				if err != nil {
+					log.Fatal().Err(err).Msg("Unable to get body")
+				}
+
+				_, decoded, err := OpenapiEcho(args[0], params, body)
 				if err != nil {
 					log.Fatal().Err(err).Msg("Error calling operation")
 				}

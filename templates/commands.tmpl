@@ -58,7 +58,8 @@ func {{ $api }}Servers() []map[string]string {
 }
 
 {{ range $operation := .Operations }}
-	func {{ $apiPublic }}{{ .GoName }}(args []string, params *viper.Viper) (*gentleman.Response, interface{}, error) {
+	// {{ $apiPublic }}{{ .GoName }} {{ .Short }}
+	func {{ $apiPublic }}{{ .GoName }}({{ range .RequiredParams }}{{ .GoName }} string, {{ end }}params *viper.Viper{{ if .CanHaveBody }}, body string{{ end }}) (*gentleman.Response, {{ .ReturnType }}, error) {
 		handlerPath := "{{ .HandlerName }}"
 		if {{ $api }}Subcommand {
 			handlerPath = "{{ $name }} " + handlerPath
@@ -73,7 +74,7 @@ func {{ $api }}Servers() []map[string]string {
 
 		{{- range $i, $param := .RequiredParams }}
 			{{- if eq $param.In "path" }}
-				url = strings.Replace(url, "{{`{`}}{{ $param.Name }}{{`}`}}", args[{{ $i }}], 1)
+				url = strings.Replace(url, "{{`{`}}{{ $param.Name }}{{`}`}}", {{ $param.GoName }}, 1)
 			{{- end }}
 		{{- end }}
 
@@ -81,9 +82,9 @@ func {{ $api }}Servers() []map[string]string {
 
 		{{ range $i, $param := .RequiredParams }}
 			{{ if eq $param.In "query" }}
-				req = req.AddQuery("{{ .Name }}", args[{{ $i }}])
+				req = req.AddQuery("{{ .Name }}", {{ $param.GoName }})
 			{{ else if eq $param.In "header" }}
-				req = req.AddHeader("{{ .Name }}", args[{{ $i }}])
+				req = req.AddHeader("{{ .Name }}", {{ $param.GoName }})
 			{{ end }}
 		{{ end }}
 
@@ -99,11 +100,6 @@ func {{ $api }}Servers() []map[string]string {
 		{{- end }}
 
 		{{ if .CanHaveBody }}
-			body, err := cli.GetBody("{{ .MediaType }}", args[{{ len .RequiredParams}}:])
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "Unable to get body")
-			}
-
 			if body != "" {
 				req = req.AddHeader("Content-Type", "{{ .MediaType }}").BodyString(body)
 			}
@@ -116,7 +112,7 @@ func {{ $api }}Servers() []map[string]string {
 			return nil, nil, errors.Wrap(err, "Request failed")
 		}
 
-		var decoded interface{}
+		var decoded {{ .ReturnType }}
 
 		if resp.StatusCode < 400 {
 			if err := cli.UnmarshalResponse(resp, &decoded); err != nil {
@@ -124,19 +120,22 @@ func {{ $api }}Servers() []map[string]string {
 			}
 		}
 
-		decoded = cli.HandleAfter(handlerPath, params, resp, decoded)
+		after := cli.HandleAfter(handlerPath, params, resp, decoded)
+		if after != nil {
+			decoded = after{{ if ne .ReturnType "interface{}" }}.({{ .ReturnType }}){{ end }}
+		}
 
 		return resp, decoded, nil
 	}
 {{ end }}
 
 {{ range $waiter := .Waiters }}
-	func {{ $apiPublic }}{{ .GoName }}(args []string, params *viper.Viper) error {
+	func {{ $apiPublic }}{{ .GoName }}({{ range .Operation.RequiredParams }}{{ .GoName }} string, {{ end }}params *viper.Viper) error {
 		attempt := 0
 		for attempt < {{ $waiter.Attempts }} {
 			attempt++
 
-			resp, decoded, err := {{ $apiPublic }}{{ .Operation.GoName }}(args, params)
+			resp, decoded, err := {{ $apiPublic }}{{ .Operation.GoName }}({{ range .Operation.RequiredParams }}{{ .GoName }}, {{ end }}params)
 			if err != nil {
 				return errors.Wrap(err, "Could not call waiter operation")
 			}
@@ -144,7 +143,7 @@ func {{ $api }}Servers() []map[string]string {
 			var actual interface{}
 			var match bool
 			{{ range $matcher := .Matchers }}
-				actual, err = cli.GetMatchValue("{{ .Select }}", nil, params.AllSettings(), resp, decoded)
+				actual, err = cli.GetMatchValue(resp.Context, "{{ .Select }}", params.AllSettings(), decoded)
 				if err != nil {
 					return errors.Wrap(err, "Could not get matcher value")
 				}
@@ -211,7 +210,7 @@ func {{ $api }}Register(subcommand bool) {
 					Long: cli.Markdown("{{ .Long }}"),
 					Args: cobra.MinimumNArgs({{ len .Operation.RequiredParams }}),
 					Run: func(cmd *cobra.Command, args []string) {
-						if err := {{ $apiPublic }}{{ .GoName }}(args, params); err != nil {
+						if err := {{ $apiPublic }}{{ .GoName }}({{ range $x, $param := .Operation.RequiredParams }}args[{{ $x }}], {{ end }}params); err != nil {
 							log.Fatal().Err(err).Msg("Error waiting")
 						}
 					},
@@ -250,11 +249,14 @@ func {{ $api }}Register(subcommand bool) {
 				Example: examples,
 				Args: cobra.MinimumNArgs({{ len .RequiredParams }}),
 				Run: func(cmd *cobra.Command, args []string) {
-					{{- if .NeedsResponse }}
-						resp, decoded, err := {{ $apiPublic }}{{ .GoName }}(args, params)
-					{{ else }}
-						_, decoded, err := {{ $apiPublic }}{{ .GoName }}(args, params)
+					{{- if .CanHaveBody }}
+					body, err := cli.GetBody("{{ .MediaType }}", args[{{ len .RequiredParams}}:])
+					if err != nil {
+						log.Fatal().Err(err).Msg("Unable to get body")
+					}
 					{{- end }}
+
+					{{ if .NeedsResponse }}resp{{ else }}_{{ end }}, decoded, err := {{ $apiPublic }}{{ .GoName }}({{ range $x, $param := .RequiredParams }}args[{{ $x }}], {{ end }}params{{ if .CanHaveBody }}, body{{ end }})
 					if err != nil {
 						log.Fatal().Err(err).Msg("Error calling operation")
 					}
@@ -275,28 +277,27 @@ func {{ $api }}Register(subcommand bool) {
 
 					{{- range .Waiters }}
 						if params.GetBool("wait-{{ .Waiter.CLIName }}") {
-							wargs := []string{}
 							wparams := viper.New()
 
-							{{- range $selector := .Args }}
-								actual, err = cli.GetMatchValue("{{ $selector }}", nil, reqParams, resp, decoded)
+							{{- range $x, $selector := .Args }}
+								actual, err = cli.GetMatchValue(resp.Context, "{{ $selector }}", reqParams, decoded)
 								if err != nil {
 									log.Fatal().Err(err).Msg("Could not get matcher value")
 								}
 
-								wargs = append(wargs, fmt.Sprintf("%v", actual))
+								arg{{ $x }} := fmt.Sprintf("%v", actual)
 							{{- end }}
 
 							{{- range $id, $selector := .Params }}
-								actual, err = cli.GetMatchValue("{{ $selector }}", nil, reqParams, resp, decoded)
+								actual, err = cli.GetMatchValue(resp.Context, "{{ $selector }}", reqParams, decoded)
 								if err != nil {
 									log.Fatal().Err(err).Msg("Could not get matcher value")
 								}
 
-								wparams["{{ $id }}"] = actual
+								wparams.Set("{{ $id }}", actual)
 							{{- end }}
 
-							if err := {{ $apiPublic }}{{ .Waiter.GoName }}(wargs, wparams); err != nil {
+							if err := {{ $apiPublic }}{{ .Waiter.GoName }}({{ range $x, $selector := .Args }}arg{{ $x }}, {{ end }}wparams); err != nil {
 								log.Fatal().Err(err).Msg("Waiter error")
 							}
 						}

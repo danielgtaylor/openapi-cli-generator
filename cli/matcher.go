@@ -9,7 +9,7 @@ import (
 
 	jmespath "github.com/jmespath/go-jmespath"
 	"github.com/rs/zerolog/log"
-	gentleman "gopkg.in/h2non/gentleman.v2"
+	"gopkg.in/h2non/gentleman.v2/context"
 )
 
 // The following equality functions are from stretchr/testify/assert.
@@ -54,8 +54,8 @@ func objectsAreEqualValues(expected, actual interface{}) bool {
 	return false
 }
 
-// GetMatchValue returns a value
-func GetMatchValue(selector string, req *gentleman.Request, reqParams map[string]interface{}, resp *gentleman.Response, decoded interface{}) (interface{}, error) {
+// GetMatchValue returns a value for the given selector query.
+func GetMatchValue(ctx *context.Context, selector string, reqParams map[string]interface{}, decoded interface{}) (interface{}, error) {
 	parts := strings.Split(selector, "#")
 	base := parts[0]
 	args := strings.Join(parts[1:], "#")
@@ -72,7 +72,7 @@ func GetMatchValue(selector string, req *gentleman.Request, reqParams map[string
 		actual = reqParams[args]
 	case "request.body":
 		var decoded interface{}
-		if err := UnmarshalRequest(req, &decoded); err != nil {
+		if err := UnmarshalRequest(ctx, &decoded); err != nil {
 			return nil, err
 		}
 
@@ -83,9 +83,9 @@ func GetMatchValue(selector string, req *gentleman.Request, reqParams map[string
 
 		actual = result
 	case "response.status":
-		actual = resp.StatusCode
+		actual = ctx.Response.StatusCode
 	case "response.header":
-		actual = resp.Header.Get(args)
+		actual = ctx.Response.Header.Get(args)
 	case "response.body":
 		// Perform a JMESPath query to match the expected value.
 		result, err := jmespath.Search(args, decoded)

@@ -149,8 +149,8 @@ func LogMiddleware(useColor bool) {
 
 // UnmarshalRequest body into a given structure `s`. Supports both JSON and
 // YAML depending on the request's content-type header.
-func UnmarshalRequest(req *gentleman.Request, s interface{}) error {
-	return unmarshalBody(req.Context.Request.Header, []byte(req.Context.GetString("request-body")), s)
+func UnmarshalRequest(ctx *context.Context, s interface{}) error {
+	return unmarshalBody(ctx.Request.Header, []byte(ctx.GetString("request-body")), s)
 }
 
 // UnmarshalResponse into a given structure `s`. Supports both JSON and

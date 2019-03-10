@@ -2,15 +2,15 @@ package cli
 
 import (
 	"encoding/json"
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	gentleman "gopkg.in/h2non/gentleman.v2"
+	"gopkg.in/h2non/gentleman.v2/context"
 )
 
 func TestMatchValueInvalidSelector(t *testing.T) {
-	_, err := GetMatchValue("invalid", nil, nil, nil, nil)
+	_, err := GetMatchValue(nil, "invalid", nil, nil)
 	assert.Error(t, err)
 }
 
@@ -19,7 +19,7 @@ func TestMatchValueReqParam(t *testing.T) {
 		"id": "foo",
 	}
 
-	value, err := GetMatchValue("request.param#id", nil, params, nil, nil)
+	value, err := GetMatchValue(nil, "request.param#id", params, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "foo", value)
 }
@@ -33,42 +33,36 @@ func TestMatchValueReqBody(t *testing.T) {
 
 	// Bad body
 	req.Context.Set("request-body", `{"foo": {"bar": 2`)
-	value, err := GetMatchValue("request.body#foo..bar", req, nil, nil, nil)
+	value, err := GetMatchValue(req.Context, "request.body#foo..bar", nil, nil)
 	assert.Error(t, err)
 
 	// Fix the body
 	req.Context.Set("request-body", `{"foo": {"bar": 2}}`)
 
 	// Bad JMESPath value
-	value, err = GetMatchValue("request.body#foo..bar", req, nil, nil, nil)
+	value, err = GetMatchValue(req.Context, "request.body#foo..bar", nil, nil)
 	assert.Error(t, err)
 
 	// Correct query
-	value, err = GetMatchValue("request.body#foo.bar", req, nil, nil, nil)
+	value, err = GetMatchValue(req.Context, "request.body#foo.bar", nil, nil)
 	assert.NoError(t, err)
 	assert.EqualValues(t, 2, value)
 }
 
 func TestMatchValueResStatus(t *testing.T) {
-	response := &gentleman.Response{
-		StatusCode: 200,
-	}
+	ctx := context.New()
+	ctx.Response.StatusCode = 200
 
-	value, err := GetMatchValue("response.status", nil, nil, response, nil)
+	value, err := GetMatchValue(ctx, "response.status", nil, nil)
 	assert.NoError(t, err)
 	assert.EqualValues(t, 200, value)
 }
 
 func TestMatchValueResHeader(t *testing.T) {
-	headers := make(http.Header)
+	ctx := context.New()
+	ctx.Response.Header.Add("x-ready", "true")
 
-	headers.Add("x-ready", "true")
-
-	response := &gentleman.Response{
-		Header: headers,
-	}
-
-	value, err := GetMatchValue("response.header#x-ready", nil, nil, response, nil)
+	value, err := GetMatchValue(ctx, "response.header#x-ready", nil, nil)
 	assert.NoError(t, err)
 	assert.EqualValues(t, "true", value)
 }
@@ -79,11 +73,11 @@ func TestMatchValueResBody(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Invalid query
-	value, err := GetMatchValue("response.body#foo..bar", nil, nil, nil, decoded)
+	value, err := GetMatchValue(nil, "response.body#foo..bar", nil, decoded)
 	assert.Error(t, err)
 
 	// Valid query
-	value, err = GetMatchValue("response.body#foo.bar", nil, nil, nil, decoded)
+	value, err = GetMatchValue(nil, "response.body#foo.bar", nil, decoded)
 	assert.NoError(t, err)
 	assert.EqualValues(t, 2, value)
 }

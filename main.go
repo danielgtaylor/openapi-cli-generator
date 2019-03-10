@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -54,6 +55,7 @@ type Operation struct {
 	Long           string
 	Method         string
 	CanHaveBody    bool
+	ReturnType     string
 	Path           string
 	AllParams      []*Param
 	RequiredParams []*Param
@@ -253,6 +255,31 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 				json.Unmarshal(operation.Extensions[ExtHidden].(json.RawMessage), &hidden)
 			}
 
+			returnType := "interface{}"
+		returnTypeLoop:
+			for code, ref := range operation.Responses {
+				if num, err := strconv.Atoi(code); err != nil || num < 200 || num >= 300 {
+					// Skip invalid responses
+					continue
+				}
+
+				if ref.Value != nil {
+					for _, content := range ref.Value.Content {
+						if _, ok := content.Example.(map[string]interface{}); ok {
+							returnType = "map[string]interface{}"
+							break returnTypeLoop
+						}
+
+						if content.Schema != nil && content.Schema.Value != nil {
+							if content.Schema.Value.Type == "object" || len(content.Schema.Value.Properties) != 0 {
+								returnType = "map[string]interface{}"
+								break returnTypeLoop
+							}
+						}
+					}
+				}
+			}
+
 			o := &Operation{
 				HandlerName:    slug(name),
 				GoName:         toGoName(name, true),
@@ -262,6 +289,7 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 				Long:           escapeString(description),
 				Method:         method,
 				CanHaveBody:    method == "Post" || method == "Put" || method == "Patch",
+				ReturnType:     returnType,
 				Path:           path,
 				AllParams:      params,
 				RequiredParams: requiredParams,
@@ -328,10 +356,26 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 					op.NeedsResponse = true
 				}
 
+				// Transform from OpenAPI param names to CLI names
+				wParams := make(map[string]string)
+				for p, s := range waitOpParams {
+					found := false
+					for _, optional := range op.OptionalParams {
+						if optional.Name == p {
+							wParams[optional.CLIName] = s
+							found = true
+							break
+						}
+					}
+					if !found {
+						panic(fmt.Errorf("Unknown parameter %s for waiter %s", p, name))
+					}
+				}
+
 				op.Waiters = append(op.Waiters, &WaiterParams{
 					Waiter: waiter,
 					Args:   args,
-					Params: waitOpParams,
+					Params: wParams,
 				})
 			}
 
