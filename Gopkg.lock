@@ -79,14 +79,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3e62095b858d5fb21d6e9b3254f26edacb2a77d666d49753be97bcf892b09c72"
+  digest = "1:837de1c55985477eaddf0662efe610be0582da86c80ecd5c98d33c2a5aa7a926"
   name = "github.com/getkin/kin-openapi"
   packages = [
     "jsoninfo",
     "openapi3",
   ]
   pruneopts = "UT"
-  revision = "44c981756c70d8724edaea8b7662bbb5245088bb"
+  revision = "e6aa6352832d5c2b0bc28bc5e1065db6cc18d221"
 
 [[projects]]
   digest = "1:2cd7915ab26ede7d95b8749e6b1f933f1c6d5398030684e6505940a10f31cfda"
