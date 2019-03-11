@@ -14,7 +14,6 @@ paths:
       - name: q
         x-cli-name: echo-query
         in: query
-        required: true
       - name: x-request-id
         in: header
         schema:

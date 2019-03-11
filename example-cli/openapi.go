@@ -27,7 +27,7 @@ func openapiServers() []map[string]string {
 }
 
 // OpenapiEcho echo
-func OpenapiEcho(paramEchoQuery string, params *viper.Viper, body string) (*gentleman.Response, map[string]interface{}, error) {
+func OpenapiEcho(params *viper.Viper, body string) (*gentleman.Response, map[string]interface{}, error) {
 	handlerPath := "echo"
 	if openapiSubcommand {
 		handlerPath = "openapi " + handlerPath
@@ -42,8 +42,10 @@ func OpenapiEcho(paramEchoQuery string, params *viper.Viper, body string) (*gent
 
 	req := cli.Client.Post().URL(url)
 
-	req = req.AddQuery("q", paramEchoQuery)
-
+	paramEchoQuery := params.GetString("echo-query")
+	if paramEchoQuery != "" {
+		req = req.AddQuery("q", fmt.Sprintf("%v", paramEchoQuery))
+	}
 	paramXRequestId := params.GetString("x-request-id")
 	if paramXRequestId != "" {
 		req = req.AddHeader("x-request-id", fmt.Sprintf("%v", paramXRequestId))
@@ -98,21 +100,21 @@ func openapiRegister(subcommand bool) {
 
 		var examples string
 
-		examples += "  " + cli.Root.CommandPath() + " echo q hello: world\n"
+		examples += "  " + cli.Root.CommandPath() + " echo hello: world\n"
 
 		cmd := &cobra.Command{
-			Use:     "echo q",
+			Use:     "echo",
 			Short:   "echo",
 			Long:    cli.Markdown("Echo back body with the same content type."),
 			Example: examples,
-			Args:    cobra.MinimumNArgs(1),
+			Args:    cobra.MinimumNArgs(0),
 			Run: func(cmd *cobra.Command, args []string) {
-				body, err := cli.GetBody("application/json", args[1:])
+				body, err := cli.GetBody("application/json", args[0:])
 				if err != nil {
 					log.Fatal().Err(err).Msg("Unable to get body")
 				}
 
-				_, decoded, err := OpenapiEcho(args[0], params, body)
+				_, decoded, err := OpenapiEcho(params, body)
 				if err != nil {
 					log.Fatal().Err(err).Msg("Error calling operation")
 				}
@@ -125,6 +127,7 @@ func openapiRegister(subcommand bool) {
 		}
 		root.AddCommand(cmd)
 
+		cmd.Flags().String("echo-query", "", "")
 		cmd.Flags().String("x-request-id", "", "")
 
 		cli.SetCustomFlags(cmd)
