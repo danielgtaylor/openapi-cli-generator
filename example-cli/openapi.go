@@ -66,6 +66,8 @@ func OpenapiEcho(paramEchoQuery string, params *viper.Viper, body string) (*gent
 		if err := cli.UnmarshalResponse(resp, &decoded); err != nil {
 			return nil, nil, errors.Wrap(err, "Unmarshalling response failed")
 		}
+	} else {
+		return nil, nil, errors.Errorf("HTTP %d: %s", resp.StatusCode, resp.String())
 	}
 
 	after := cli.HandleAfter(handlerPath, params, resp, decoded)

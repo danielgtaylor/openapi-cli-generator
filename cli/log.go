@@ -63,9 +63,13 @@ func (w ConsoleWriter) Write(p []byte) (n int, err error) {
 		colorize(path.Base(event[zerolog.CallerFieldName].(string)), cReset, !w.NoColor),
 		colorize(event[zerolog.MessageFieldName], cReset, !w.NoColor))
 	fields := make([]string, 0, len(event))
+	errorField := ""
 	for field := range event {
 		switch field {
 		case zerolog.LevelFieldName, zerolog.TimestampFieldName, zerolog.MessageFieldName, zerolog.CallerFieldName:
+			continue
+		case "error":
+			errorField = fmt.Sprintf("%v\n", event[field])
 			continue
 		}
 		fields = append(fields, field)
@@ -92,6 +96,9 @@ func (w ConsoleWriter) Write(p []byte) (n int, err error) {
 		}
 	}
 	buf.WriteByte('\n')
+	if errorField != "" {
+		buf.Write([]byte(errorField))
+	}
 	buf.WriteTo(w.Out)
 	n = len(p)
 	return
