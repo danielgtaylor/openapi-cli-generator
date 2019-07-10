@@ -3,6 +3,7 @@
 package oauth
 
 import (
+	"errors"
 	"net/url"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
@@ -17,6 +18,9 @@ type config struct {
 	getParams func(profile map[string]string) url.Values
 	extra     []string
 }
+
+// ErrInvalidProfile is thrown when a profile is missing or invalid.
+var ErrInvalidProfile = errors.New("invalid profile")
 
 // GetParams registers a function to get additional token endpoint parameters
 // to include in the request when fetching a new token.
@@ -61,6 +65,11 @@ func InitClientCredentials(tokenURL string, options ...func(*config) error) {
 			// No auth is set, so let's get the token either from a cache
 			// or generate a new one from the issuing server.
 			profile := cli.GetProfile()
+
+			if profile["client_id"] == "" {
+				h.Error(ctx, ErrInvalidProfile)
+				return
+			}
 
 			var params url.Values
 			if c.getParams != nil {
