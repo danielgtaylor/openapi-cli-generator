@@ -24,7 +24,7 @@ var Creds *CredentialsFile
 
 // GetProfile returns the current profile's configuration.
 func GetProfile() map[string]string {
-	return Creds.GetStringMapString("profiles." + viper.GetString("profile"))
+	return Creds.GetStringMapString("profiles." + strings.Replace(viper.GetString("profile"), ".", "-", -1))
 }
 
 // ProfileKeys lets you specify authentication profile keys to be used in
@@ -85,7 +85,10 @@ func InitCredentials(options ...func(*CredentialsFile) error) {
 		Args:    cobra.ExactArgs(1 + len(Creds.keys)),
 		Run: func(cmd *cobra.Command, args []string) {
 			for i, key := range Creds.keys {
-				Creds.Set("profiles."+args[0]+"."+strings.Replace(key, "-", "_", -1), args[i+1])
+				// Replace periods in the name since Viper will create nested structures
+				// in the config and this isn't what we want!
+				name := strings.Replace(args[0], ".", "-", -1)
+				Creds.Set("profiles."+name+"."+strings.Replace(key, "-", "_", -1), args[i+1])
 			}
 
 			filename := path.Join(viper.GetString("config-directory"), "credentials.json")
