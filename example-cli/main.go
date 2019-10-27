@@ -4,8 +4,6 @@ import (
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
 )
 
-//go:generate openapi-cli-generator generate openapi.yaml
-
 func main() {
 	cli.Init(&cli.Config{
 		AppName:   "example",

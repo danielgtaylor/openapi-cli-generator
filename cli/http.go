@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -147,13 +148,13 @@ func LogMiddleware(useColor bool) {
 	})
 }
 
-// UnmarshalRequest body into a given structure `s`. Supports both JSON and
+// UnmarshalRequest body into a given structure `s`. Supports XML, JSON and
 // YAML depending on the request's content-type header.
 func UnmarshalRequest(ctx *context.Context, s interface{}) error {
 	return unmarshalBody(ctx.Request.Header, []byte(ctx.GetString("request-body")), s)
 }
 
-// UnmarshalResponse into a given structure `s`. Supports both JSON and
+// UnmarshalResponse into a given structure `s`. Supports XML, JSON and
 // YAML depending on the response's content-type header.
 func UnmarshalResponse(resp *gentleman.Response, s interface{}) error {
 	data := resp.Bytes()
@@ -177,6 +178,10 @@ func unmarshalBody(headers http.Header, data []byte, s interface{}) error {
 		}
 	} else if strings.Contains(ct, "yaml") {
 		if err := yaml.Unmarshal(data, &s); err != nil {
+			return err
+		}
+	} else if strings.Contains(ct, "xml") {
+		if err := xml.Unmarshal(data, &s); err != nil {
 			return err
 		}
 	} else {

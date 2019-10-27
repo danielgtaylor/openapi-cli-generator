@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -89,6 +90,24 @@ func GetBody(mediaType string, args []string) (string, error) {
 			}
 
 			marshalled, err := yaml.Marshal(result)
+			if err != nil {
+				return "", err
+			}
+
+			body = string(marshalled)
+		} else if strings.Contains(mediaType, "xml") {
+			if body != "" {
+				// Have a body from stdin. Should be XML, so let's merge.
+				var curBody map[string]interface{}
+				if err := xml.Unmarshal([]byte(body), &curBody); err != nil {
+					return "", err
+				}
+
+				DeepAssign(curBody, result)
+				result = curBody
+			}
+
+			marshalled, err := xml.Marshal(result)
 			if err != nil {
 				return "", err
 			}
