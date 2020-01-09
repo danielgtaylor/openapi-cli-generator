@@ -64,14 +64,14 @@ $ my-cli --help
 
 Several extensions properties may be used to change the behavior of the CLI.
 
-Name | Description
----- | -----------
-`x-cli-aliases` | Sets up command aliases for operations.
-`x-cli-description` | Provide an alternate description for the CLI.
-`x-cli-ignore` | Ignore this path, operation, or parameter.
-`x-cli-hidden` | Hide this path, or operation.
-`x-cli-name` | Provide an alternate name for the CLI.
-`x-cli-waiters` | Generate commands/params to wait until a certain state is reached.
+| Name                | Description                                                        |
+| ------------------- | ------------------------------------------------------------------ |
+| `x-cli-aliases`     | Sets up command aliases for operations.                            |
+| `x-cli-description` | Provide an alternate description for the CLI.                      |
+| `x-cli-ignore`      | Ignore this path, operation, or parameter.                         |
+| `x-cli-hidden`      | Hide this path, or operation.                                      |
+| `x-cli-name`        | Provide an alternate name for the CLI.                             |
+| `x-cli-waiters`     | Generate commands/params to wait until a certain state is reached. |
 
 ### Aliases
 
@@ -83,7 +83,7 @@ paths:
     get:
       operationId: ListItems
       x-cli-aliases:
-      - ls
+        - ls
 ```
 
 ### Description
@@ -130,9 +130,9 @@ paths:
     operationId: myOperation
     x-cli-name: my-op
     parameters:
-    - name: id
-      x-cli-name: item-id
-      in: query
+      - name: id
+        x-cli-name: item-id
+        in: query
 ```
 
 With the above, you would be able to call `my-cli my-op --item-id=12`.
@@ -152,8 +152,8 @@ paths:
       operationId: GetOrder
       description: Get an order's details.
       parameters:
-      - name: id
-        in: path
+        - name: id
+          in: path
       responses:
         200:
           content:
@@ -170,8 +170,8 @@ x-cli-waiters:
     attempts: 10
     operationId: GetOrder
     matchers:
-    - select: response.body#status
-      expected: charged
+      - select: response.body#status
+        expected: charged
 ```
 
 The generated CLI will work like this: `my-cli wait order-charged $ID` where `$ID` corresponds to the `GetOrder` operation's `id` parameter. It will try to get and match the status 10 times, with a pause of 30 seconds between tries. If it matches, it will exit with a zero status code. If it fails, it will exit with a non-zero exit code and log a message.
@@ -187,11 +187,11 @@ x-cli-waiters:
     attempts: 10
     operationId: GetOrder
     matchers:
-    - select: response.body#status
-      expected: charged
-    - select: response.status
-      expected: 404
-      state: failure
+      - select: response.body#status
+        expected: charged
+      - select: response.status
+        expected: 404
+        state: failure
     after:
       CreateOrder:
         id: response.body#order_id
@@ -201,7 +201,7 @@ Here we added two new features:
 
 1. A short-circuit to fail fast. If we type an invalid order ID then we want the command to exit immediately with a non-zero exit code.
 
-2. The `after` block allows us to add a parameter to an *existing* operation to invoke the waiter. This block says that after a call to `CreateOrder` with a `--wait-order-charged` param, it should call the waiter's `GetOrder` operation with the `id` param set to the result of the `response.body#order_id` selector.
+2. The `after` block allows us to add a parameter to an _existing_ operation to invoke the waiter. This block says that after a call to `CreateOrder` with a `--wait-order-charged` param, it should call the waiter's `GetOrder` operation with the `id` param set to the result of the `response.body#order_id` selector.
 
 You can now create and wait on an order via `my-cli create-order <order.json --wait-order-charged`.
 
@@ -209,22 +209,22 @@ You can now create and wait on an order via `my-cli create-order <order.json --w
 
 The following matcher fields are available:
 
-Field | Description | Example
------ | ----------- | -------
-`select` | The value selection criteria. See the selector table below. | `response.status`
-`test` | The test to perform. Defaults to `equal` but can be set to `any` and `all` to match list items. | `equal`
-`expected` | The expected value | `charged`
-`state` | The state to set. Defaults to `success` but can be set to `failure`. | `success`
+| Field      | Description                                                                                     | Example           |
+| ---------- | ----------------------------------------------------------------------------------------------- | ----------------- |
+| `select`   | The value selection criteria. See the selector table below.                                     | `response.status` |
+| `test`     | The test to perform. Defaults to `equal` but can be set to `any` and `all` to match list items. | `equal`           |
+| `expected` | The expected value                                                                              | `charged`         |
+| `state`    | The state to set. Defaults to `success` but can be set to `failure`.                            | `success`         |
 
 The following selectors are available:
 
-Selector | Description | Argument | Example
--------- | ----------- | -------- | -------
-`request.param` | Request parameter | Parameter name | `request.param#id`
-`request.body` | Request body query | JMESPath query | `request.body#order.id`
-`response.status` | Response HTTP status code | - | `response.status`
-`response.header` | Response HTTP header | Header name | `response.header#content-type`
-`response.body` | Response body query | JMESPath query | `response.body#orders[].status`
+| Selector          | Description               | Argument       | Example                         |
+| ----------------- | ------------------------- | -------------- | ------------------------------- |
+| `request.param`   | Request parameter         | Parameter name | `request.param#id`              |
+| `request.body`    | Request body query        | JMESPath query | `request.body#order.id`         |
+| `response.status` | Response HTTP status code | -              | `response.status`               |
+| `response.header` | Response HTTP header      | Header name    | `response.header#content-type`  |
+| `response.body`   | Response body query       | JMESPath query | `response.body#orders[].status` |
 
 ## Customization
 
@@ -304,9 +304,49 @@ If the `foo` command would normally return a JSON object like `{"hello": "world"
 }
 ```
 
-### Authentication
+### Authentication & Authorization
 
-See the `apikey` module for an example. More docs coming soon.
+See the `apikey` module for a simple example of a pre-shared key.
+
+If instead you use a third party auth system that vends tokens and want your users to be able to log in and use the API, here's an example using Auth0:
+
+```go
+func main() {
+	cli.Init(&cli.Config{
+		AppName:   "example",
+		EnvPrefix: "EXAMPLE",
+		Version:   "1.0.0",
+	})
+
+  // Auth0 requires a client ID, issuer base URL, and audience fields when
+  // requesting a token. We set these up here and use the Authorization Code
+  // with PKCE flow to log in, which opens a browser for the user to log into.
+  clientID := "abc123"
+  issuer := "https://mycompany.auth0.com/"
+
+  oauth.InitAuthCode(clientID, issuer+"authorize", issuer+"oauth/token",
+    oauth.Scopes("offline_access"),
+		oauth.Extra("audience"),
+		oauth.GetParams(func(profile map[string]string) url.Values {
+			return url.Values{
+				"audience": {profile["audience"]},
+			}
+		}))
+
+  // TODO: Register API commands here
+  // ...
+
+	cli.Root.Execute()
+}
+```
+
+Note that there is a convenience module when using Auth0 specifically, allowing you to do this:
+
+```go
+auth0.InitAuthCode(clientID, issuer)
+```
+
+The expanded example above is more useful when integrating with other services since it uses basic OAuth 2 primitives.
 
 ## Development
 

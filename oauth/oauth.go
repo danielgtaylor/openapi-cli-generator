@@ -17,6 +17,7 @@ import (
 type config struct {
 	getParams func(profile map[string]string) url.Values
 	extra     []string
+	scopes    []string
 }
 
 // ErrInvalidProfile is thrown when a profile is missing or invalid.
@@ -36,6 +37,14 @@ func GetParams(f func(profile map[string]string) url.Values) func(*config) error
 func Extra(names ...string) func(*config) error {
 	return func(c *config) error {
 		c.extra = names
+		return nil
+	}
+}
+
+// Scopes sets a list of scopes to request for the token.
+func Scopes(scopes ...string) func(*config) error {
+	return func(c *config) error {
+		c.scopes = scopes
 		return nil
 	}
 }
@@ -81,6 +90,7 @@ func InitClientCredentials(tokenURL string, options ...func(*config) error) {
 				ClientSecret:   profile["client_secret"],
 				TokenURL:       tokenURL,
 				EndpointParams: params,
+				Scopes:         c.scopes,
 			}).TokenSource(oauth2.NoContext)
 
 			TokenMiddleware(source, ctx, h)
