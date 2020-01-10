@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+## 2020-01-10
+- Add support for OAuth2 Authorization Code with PKCE https://oauth.net/2/pkce/
+
 ## 2019-03-10
 - Better rendering of error messages.
 - Switch to Go modules.
