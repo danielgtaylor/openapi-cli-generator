@@ -15,10 +15,10 @@ import (
 	"context"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
-	gcontext "gopkg.in/h2non/gentleman.v2/context"
 )
 
 // open opens the specified URL in the default browser regardless of OS.
@@ -125,6 +125,65 @@ func (ac *AuthorizationCodeTokenSource) Token() (*oauth2.Token, error) {
 	return requestToken(ac.TokenURL, payload)
 }
 
+// AuthCodeHandler sets up the OAuth 2.0 authorization code with PKCE authentication
+// flow.
+type AuthCodeHandler struct {
+	ClientID     string
+	AuthorizeURL string
+	TokenURL     string
+	Keys         []string
+	Params       []string
+	Scopes       []string
+
+	getParamsFunc func(profile map[string]string) url.Values
+}
+
+// ProfileKeys returns the key names for fields to store in the profile.
+func (h *AuthCodeHandler) ProfileKeys() []string {
+	return h.Keys
+}
+
+// OnRequest gets run before the request goes out on the wire.
+func (h *AuthCodeHandler) OnRequest(log *zerolog.Logger, request *http.Request) error {
+	if request.Header.Get("Authorization") == "" {
+		// No auth is set, so let's get the token either from a cache
+		// or generate a new one from the issuing server.
+		profile := cli.GetProfile()
+
+		params := url.Values{}
+		if h.getParamsFunc != nil {
+			// Backward-compatibility with old call style, only used internally.
+			params = h.getParamsFunc(profile)
+		}
+		for _, name := range h.Params {
+			params.Add(name, profile[name])
+		}
+
+		source := &AuthorizationCodeTokenSource{
+			ClientID:       h.ClientID,
+			AuthorizeURL:   h.AuthorizeURL,
+			TokenURL:       h.TokenURL,
+			EndpointParams: &params,
+			Scopes:         h.Scopes,
+		}
+
+		// Try to get a cached refresh token from the current profile and use
+		// it to wrap the auth code token source with a refreshing source.
+		refreshKey := "profiles." + viper.GetString("profile") + ".refresh"
+		refreshSource := RefreshTokenSource{
+			ClientID:       h.ClientID,
+			TokenURL:       h.TokenURL,
+			EndpointParams: &params,
+			RefreshToken:   cli.Cache.GetString(refreshKey),
+			TokenSource:    source,
+		}
+
+		return TokenHandler(refreshSource, log, request)
+	}
+
+	return nil
+}
+
 // InitAuthCode sets up the OAuth 2.0 authorization code with PKCE authentication
 // flow. Must be called *after* you have called `cli.Init()`. The endpoint
 // params allow you to pass additional info to the token URL. Pass in
@@ -139,45 +198,18 @@ func InitAuthCode(clientID string, authorizeURL string, tokenURL string, options
 		}
 	}
 
-	standard := []string{}
+	handler := &AuthCodeHandler{
+		ClientID:     clientID,
+		AuthorizeURL: authorizeURL,
+		TokenURL:     tokenURL,
+		Scopes:       c.scopes,
+		Keys:         c.extra,
 
-	cli.InitCredentials(
-		cli.ProfileKeys(append(standard, c.extra...)...),
-		cli.ProfileListKeys())
+		// Since you can pass a function to get params, we can't use the normal
+		// preset `Params` field. We use an internal field here for backwards
+		// compatibility only.
+		getParamsFunc: c.getParams,
+	}
 
-	cli.Client.UseRequest(func(ctx *gcontext.Context, h gcontext.Handler) {
-		if ctx.Request.Header.Get("Authorization") == "" {
-			// No auth is set, so let's get the token either from a cache
-			// or generate a new one from the issuing server.
-			profile := cli.GetProfile()
-
-			var params url.Values
-			if c.getParams != nil {
-				params = c.getParams(profile)
-			}
-
-			source := &AuthorizationCodeTokenSource{
-				ClientID:       clientID,
-				AuthorizeURL:   authorizeURL,
-				TokenURL:       tokenURL,
-				EndpointParams: &params,
-				Scopes:         c.scopes,
-			}
-
-			// Try to get a cached refresh token from the current profile and use
-			// it to wrap the auth code token source with a refreshing source.
-			refreshKey := "profiles." + viper.GetString("profile") + ".refresh"
-			refreshSource := RefreshTokenSource{
-				ClientID:       clientID,
-				TokenURL:       tokenURL,
-				EndpointParams: &params,
-				RefreshToken:   cli.Cache.GetString(refreshKey),
-				TokenSource:    source,
-			}
-
-			TokenMiddleware(refreshSource, ctx, h)
-		}
-
-		h.Next(ctx)
-	})
+	cli.UseAuth("", handler)
 }

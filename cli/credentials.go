@@ -2,14 +2,156 @@ package cli
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/h2non/gentleman.v2/context"
 )
+
+// AuthHandler describes a handler that can be called on a request to inject
+// auth information and is agnostic to the type of auth.
+type AuthHandler interface {
+	// ProfileKeys returns the key names for fields to store in the profile.
+	ProfileKeys() []string
+
+	// OnRequest gets run before the request goes out on the wire.
+	OnRequest(log *zerolog.Logger, request *http.Request) error
+}
+
+// AuthHandlers is the map of registered auth type names to handlers
+var AuthHandlers = make(map[string]AuthHandler)
+
+var authInitialized bool
+var authCommand *cobra.Command
+var authAddCommand *cobra.Command
+
+// initAuth sets up basic commands and the credentials file so that new auth
+// handlers can be registered. This is safe to call many times.
+func initAuth() {
+	if authInitialized {
+		return
+	}
+	authInitialized = true
+
+	// Set up the credentials file
+	InitCredentialsFile()
+
+	// Add base auth commands
+	authCommand = &cobra.Command{
+		Use:   "auth",
+		Short: "Authentication settings",
+	}
+	Root.AddCommand(authCommand)
+
+	authAddCommand = &cobra.Command{
+		Use:     "add-profile",
+		Aliases: []string{"add"},
+		Short:   "Add user profile for authentication",
+	}
+	authCommand.AddCommand(authAddCommand)
+
+	authCommand.AddCommand(&cobra.Command{
+		Use:     "list-profiles",
+		Aliases: []string{"ls"},
+		Short:   "List available configured authentication profiles",
+		Args:    cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			profiles := Creds.GetStringMap("profiles")
+
+			// TODO: reorganize by type, do one table per type
+
+			if profiles != nil {
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader(append([]string{"Profile Name"}, Creds.listKeys...))
+
+				for name, profile := range profiles {
+					row := []string{name}
+					for _, key := range Creds.listKeys {
+						row = append(row, profile.(map[string]interface{})[strings.Replace(key, "-", "_", -1)].(string))
+					}
+					table.Append(row)
+				}
+				table.Render()
+			} else {
+				fmt.Printf("No profiles configured. Use `%s auth add-profile` to add one.\n", Root.CommandPath())
+			}
+		},
+	})
+
+	// Install auth middleware
+	Client.UseRequest(func(ctx *context.Context, h context.Handler) {
+		profile := GetProfile()
+
+		handler := AuthHandlers[profile["type"]]
+		if handler == nil {
+			h.Error(ctx, fmt.Errorf("no handler for auth type %s", profile["type"]))
+			return
+		}
+
+		if err := handler.OnRequest(ctx.Get("log").(*zerolog.Logger), ctx.Request); err != nil {
+			h.Error(ctx, err)
+			return
+		}
+
+		h.Next(ctx)
+	})
+}
+
+// UseAuth registers a new auth handler for a given type name.
+func UseAuth(typeName string, handler AuthHandler) {
+	// Initialize auth system if it isn't already set up.
+	initAuth()
+
+	// Register the handler by its type.
+	AuthHandlers[typeName] = handler
+
+	// Set up the add-profile command.
+	keys := handler.ProfileKeys()
+
+	use := " [flags] <name>"
+	for _, name := range keys {
+		use += " <" + strings.Replace(name, "_", "-", -1) + ">"
+	}
+
+	run := func(cmd *cobra.Command, args []string) {
+		name := strings.Replace(args[0], ".", "-", -1)
+		Creds.Set("profiles."+name+".type", typeName)
+
+		for i, key := range keys {
+			// Replace periods in the name since Viper will create nested structures
+			// in the config and this isn't what we want!
+			Creds.Set("profiles."+name+"."+strings.Replace(key, "-", "_", -1), args[i+1])
+		}
+
+		filename := path.Join(viper.GetString("config-directory"), "credentials.json")
+		if err := Creds.WriteConfigAs(filename); err != nil {
+			panic(err)
+		}
+	}
+
+	if typeName == "" {
+		// Backward-compatibility use-case without an explicit type. Set up the
+		// `add-profile` command as the only way to authenticate.
+		authAddCommand.Use = "add-profile" + use
+		authAddCommand.Short = "Add a new named authentication profile"
+		authAddCommand.Args = cobra.ExactArgs(1 + len(keys))
+		authAddCommand.Run = run
+	} else {
+		// Add a new type-specific `add-profile` subcommand.
+		authAddCommand.AddCommand(&cobra.Command{
+			Use:   typeName + use,
+			Short: "Add a new named " + typeName + " authentication profile",
+			Args:  cobra.ExactArgs(1 + len(keys)),
+			Run:   run,
+		})
+	}
+}
 
 // CredentialsFile holds credential-related information.
 type CredentialsFile struct {
@@ -45,19 +187,11 @@ func ProfileListKeys(keys ...string) func(*CredentialsFile) error {
 	}
 }
 
-// InitCredentials sets up the profile/auth commands. Must be called *after* you
-// have called `cli.Init()`.
-//
-//  // Initialize an API key
-//  cli.InitCredentials(cli.ProfileKeys("api-key"))
-func InitCredentials(options ...func(*CredentialsFile) error) {
+// InitCredentialsFile sets up the creds file and `profile` global parameter.
+func InitCredentialsFile() {
 	// Setup a credentials file, kept separate from configuration which might
 	// get checked into source control.
 	Creds = &CredentialsFile{viper.New(), []string{}, []string{}}
-
-	for _, option := range options {
-		option(Creds)
-	}
 
 	Creds.SetConfigName("credentials")
 	Creds.AddConfigPath("$HOME/." + viper.GetString("app-name") + "/")
@@ -65,6 +199,19 @@ func InitCredentials(options ...func(*CredentialsFile) error) {
 
 	// Register a new `--profile` flag.
 	AddGlobalFlag("profile", "", "Credentials profile to use for authentication", "default")
+}
+
+// InitCredentials sets up the profile/auth commands. Must be called *after* you
+// have called `cli.Init()`.
+//
+//  // Initialize an API key
+//  cli.InitCredentials(cli.ProfileKeys("api-key"))
+func InitCredentials(options ...func(*CredentialsFile) error) {
+	InitCredentialsFile()
+
+	for _, option := range options {
+		option(Creds)
+	}
 
 	// Register auth management commands to create and list profiles.
 	cmd := &cobra.Command{

@@ -4,13 +4,13 @@ package oauth
 
 import (
 	"errors"
+	"net/http"
 	"net/url"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/h2non/gentleman.v2/context"
 )
 
@@ -49,71 +49,23 @@ func Scopes(scopes ...string) func(*config) error {
 	}
 }
 
-// InitClientCredentials sets up the OAuth 2.0 client credentials authentication
-// flow. Must be called *after* you have called `cli.Init()`. The endpoint
-// params allow you to pass additional info to the token URL. Pass in
-// profile-related extra variables to store them alongside the default profile
-// information.
-func InitClientCredentials(tokenURL string, options ...func(*config) error) {
-	var c config
-
-	for _, option := range options {
-		if err := option(&c); err != nil {
-			panic(err)
-		}
-	}
-
-	standard := []string{"client-id", "client-secret"}
-
-	cli.InitCredentials(
-		cli.ProfileKeys(append(standard, c.extra...)...),
-		cli.ProfileListKeys("client-id"))
-
-	cli.Client.UseRequest(func(ctx *context.Context, h context.Handler) {
-		if ctx.Request.Header.Get("Authorization") == "" {
-			// No auth is set, so let's get the token either from a cache
-			// or generate a new one from the issuing server.
-			profile := cli.GetProfile()
-
-			if profile["client_id"] == "" {
-				h.Error(ctx, ErrInvalidProfile)
-				return
-			}
-
-			var params url.Values
-			if c.getParams != nil {
-				params = c.getParams(profile)
-			}
-
-			source := (&clientcredentials.Config{
-				ClientID:       profile["client_id"],
-				ClientSecret:   profile["client_secret"],
-				TokenURL:       tokenURL,
-				EndpointParams: params,
-				Scopes:         c.scopes,
-			}).TokenSource(oauth2.NoContext)
-
-			TokenMiddleware(source, ctx, h)
-		}
-
-		h.Next(ctx)
-	})
-
-	// TODO: retry on 401
-	// cli.Client.UseResponse(func(ctx *context.Context, h context.Handler) {
-	// 	h.Next(ctx)
-	// })
-}
-
-// TokenMiddleware takes a token source, gets a token, and modifies a request to
-// add the token auth as a header. Uses the CLI cache to store tokens on a per-
-// profile basis between runs.
+// TokenMiddleware is a wrapper around TokenHandler.
 func TokenMiddleware(source oauth2.TokenSource, ctx *context.Context, h context.Handler) {
-	var cached *oauth2.Token
-
 	// Setup logger with the current profile.
 	log := ctx.Get("log").(*zerolog.Logger).
 		With().Str("profile", viper.GetString("profile")).Logger()
+
+	if err := TokenHandler(source, &log, ctx.Request); err != nil {
+		h.Error(ctx, err)
+		return
+	}
+}
+
+// TokenHandler takes a token source, gets a token, and modifies a request to
+// add the token auth as a header. Uses the CLI cache to store tokens on a per-
+// profile basis between runs.
+func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.Request) error {
+	var cached *oauth2.Token
 
 	// Load any existing token from the CLI's cache file.
 	expiresKey := "profiles." + viper.GetString("profile") + ".expires"
@@ -140,8 +92,7 @@ func TokenMiddleware(source oauth2.TokenSource, ctx *context.Context, h context.
 	// Get the next available token from the source.
 	token, err := source.Token()
 	if err != nil {
-		h.Error(ctx, err)
-		return
+		return err
 	}
 
 	if cached == nil || (token.AccessToken != cached.AccessToken) {
@@ -156,11 +107,11 @@ func TokenMiddleware(source oauth2.TokenSource, ctx *context.Context, h context.
 
 		// Save the cache to disk.
 		if err := cli.Cache.WriteConfig(); err != nil {
-			h.Error(ctx, err)
-			return
+			return err
 		}
 	}
 
 	// Set the auth header so the request can be made.
-	token.SetAuthHeader(ctx.Request)
+	token.SetAuthHeader(request)
+	return nil
 }
