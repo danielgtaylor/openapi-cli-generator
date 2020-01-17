@@ -64,20 +64,41 @@ func initAuth() {
 		Run: func(cmd *cobra.Command, args []string) {
 			profiles := Creds.GetStringMap("profiles")
 
-			// TODO: reorganize by type, do one table per type
-
 			if profiles != nil {
-				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader(append([]string{"Profile Name"}, Creds.listKeys...))
-
-				for name, profile := range profiles {
-					row := []string{name}
-					for _, key := range Creds.listKeys {
-						row = append(row, profile.(map[string]interface{})[strings.Replace(key, "-", "_", -1)].(string))
+				// Use a map as a set to find the available auth type names.
+				types := make(map[string]bool)
+				for _, v := range profiles {
+					if typeName := v.(map[string]interface{})["type"]; typeName != nil {
+						types[typeName.(string)] = true
 					}
-					table.Append(row)
 				}
-				table.Render()
+
+				// For each type name, draw a table with the relevant profile keys
+				for typeName := range types {
+					handler := AuthHandlers[typeName]
+					if handler == nil {
+						continue
+					}
+
+					listKeys := handler.ProfileKeys()
+
+					table := tablewriter.NewWriter(os.Stdout)
+					table.SetHeader(append([]string{fmt.Sprintf("%s Profile Name", typeName)}, listKeys...))
+
+					for name, p := range profiles {
+						profile := p.(map[string]interface{})
+						if ptype := profile["type"]; ptype == nil || ptype.(string) != typeName {
+							continue
+						}
+
+						row := []string{name}
+						for _, key := range listKeys {
+							row = append(row, profile[strings.Replace(key, "-", "_", -1)].(string))
+						}
+						table.Append(row)
+					}
+					table.Render()
+				}
 			} else {
 				fmt.Printf("No profiles configured. Use `%s auth add-profile` to add one.\n", Root.CommandPath())
 			}
@@ -103,7 +124,9 @@ func initAuth() {
 	})
 }
 
-// UseAuth registers a new auth handler for a given type name.
+// UseAuth registers a new auth handler for a given type name. For backward-
+// compatibility, the auth type name can be a blank string. It is recommended
+// to always pass a value for the type name.
 func UseAuth(typeName string, handler AuthHandler) {
 	// Initialize auth system if it isn't already set up.
 	initAuth()
@@ -171,6 +194,7 @@ func GetProfile() map[string]string {
 
 // ProfileKeys lets you specify authentication profile keys to be used in
 // the credentials file.
+// This is deprecated and you should use `cli.UseAuth` instead.
 func ProfileKeys(keys ...string) func(*CredentialsFile) error {
 	return func(cf *CredentialsFile) error {
 		cf.keys = keys
@@ -180,6 +204,7 @@ func ProfileKeys(keys ...string) func(*CredentialsFile) error {
 
 // ProfileListKeys sets which keys will be shown in the table when calling
 // the `auth list-profiles` command.
+// This is deprecated and you should use `cli.UseAuth` instead.
 func ProfileListKeys(keys ...string) func(*CredentialsFile) error {
 	return func(cf *CredentialsFile) error {
 		cf.listKeys = keys
@@ -206,6 +231,7 @@ func InitCredentialsFile() {
 //
 //  // Initialize an API key
 //  cli.InitCredentials(cli.ProfileKeys("api-key"))
+// This is deprecated and you should use `cli.UseAuth` instead.
 func InitCredentials(options ...func(*CredentialsFile) error) {
 	InitCredentialsFile()
 
