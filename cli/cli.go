@@ -57,6 +57,7 @@ type Config struct {
 func Init(config *Config) {
 	initConfig(config.AppName, config.EnvPrefix)
 	initCache(config.AppName)
+	authInitialized = false
 
 	// Determine if we are using a TTY or colored output is forced-on.
 	tty = false
