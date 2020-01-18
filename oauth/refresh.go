@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 )
 
@@ -33,6 +34,7 @@ type RefreshTokenSource struct {
 // back to the original source.
 func (ts RefreshTokenSource) Token() (*oauth2.Token, error) {
 	if ts.RefreshToken != "" {
+		log.Debug().Msg("Trying refresh token to get a new access token")
 		payload := fmt.Sprintf("grant_type=refresh_token&client_id=%s&refresh_token=%s", ts.ClientID, ts.RefreshToken)
 
 		token, err := requestToken(ts.TokenURL, payload)

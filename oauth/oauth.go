@@ -103,7 +103,13 @@ func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.
 		cli.Cache.Set(expiresKey, token.Expiry)
 		cli.Cache.Set(typeKey, token.Type())
 		cli.Cache.Set(tokenKey, token.AccessToken)
-		cli.Cache.Set(refreshKey, token.RefreshToken)
+
+		if token.RefreshToken != "" {
+			// Only set the refresh token if present. This prevents overwriting it
+			// after using a refresh token, because the newly returned token won't
+			// have another refresh token set on it (you keep using the same one).
+			cli.Cache.Set(refreshKey, token.RefreshToken)
+		}
 
 		// Save the cache to disk.
 		if err := cli.Cache.WriteConfig(); err != nil {

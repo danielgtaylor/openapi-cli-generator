@@ -42,6 +42,8 @@ func requestToken(tokenURL, payload string) (*oauth2.Token, error) {
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
 
+	log.Debug().Str("url", tokenURL).Bytes("body", body).Msg("Got response")
+
 	if res.StatusCode > 200 {
 		return nil, fmt.Errorf("bad response from token endpoint:\n%s", body)
 	}
