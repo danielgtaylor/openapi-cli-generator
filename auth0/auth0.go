@@ -1,14 +1,14 @@
 package auth0
 
 import (
-	"net/url"
-
+	"github.com/danielgtaylor/openapi-cli-generator/cli"
 	"github.com/danielgtaylor/openapi-cli-generator/oauth"
 )
 
 type config struct {
-	extra  []string
-	scopes []string
+	typeName string
+	extra    []string
+	scopes   []string
 }
 
 // Extra provides the names of additional parameters to use to store information
@@ -29,6 +29,14 @@ func Scopes(scopes ...string) func(*config) error {
 	}
 }
 
+// Type defines the type name of this auth mechanism.
+func Type(name string) func(*config) error {
+	return func(c *config) error {
+		c.typeName = name
+		return nil
+	}
+}
+
 // InitClientCredentials sets up the Auth0 client credentials flow. Must be
 // called *after* you have called `cli.Init()`. Pass in profile-related extra
 // variables to store them alongside the default profile information.
@@ -41,14 +49,9 @@ func InitClientCredentials(issuer string, options ...func(*config) error) {
 		}
 	}
 
-	oauth.InitClientCredentials(issuer+"oauth/token",
-		oauth.Scopes(c.scopes...),
-		oauth.Extra(append([]string{"audience"}, c.extra...)...),
-		oauth.GetParams(func(profile map[string]string) url.Values {
-			return url.Values{
-				"audience": {profile["audience"]},
-			}
-		}))
+	handler := oauth.NewClientCredentialsHandler(issuer+"oauth/token", append([]string{"audience"}, c.extra...), []string{"audience"}, c.scopes)
+
+	cli.UseAuth(c.typeName, handler)
 }
 
 // InitAuthCode sets up the Auth0 authorization code flow. Must be
@@ -63,12 +66,12 @@ func InitAuthCode(clientID string, issuer string, options ...func(*config) error
 		}
 	}
 
-	oauth.InitAuthCode(clientID, issuer+"authorize", issuer+"oauth/token",
-		oauth.Scopes(c.scopes...),
-		oauth.Extra(append([]string{"audience"}, c.extra...)...),
-		oauth.GetParams(func(profile map[string]string) url.Values {
-			return url.Values{
-				"audience": {profile["audience"]},
-			}
-		}))
+	cli.UseAuth(c.typeName, &oauth.AuthCodeHandler{
+		ClientID:     clientID,
+		AuthorizeURL: issuer + "authorize",
+		TokenURL:     issuer + "oauth/token",
+		Keys:         append([]string{"audience"}, c.extra...),
+		Params:       []string{"audience"},
+		Scopes:       c.scopes,
+	})
 }

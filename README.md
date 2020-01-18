@@ -343,7 +343,9 @@ func main() {
 Note that there is a convenience module when using Auth0 specifically, allowing you to do this:
 
 ```go
-auth0.InitAuthCode(clientID, issuer, auth0.Scopes("offline_access"))
+auth0.InitAuthCode(clientID, issuer,
+  auth0.Type("user"),
+  auth0.Scopes("offline_access"))
 ```
 
 The expanded example above is more useful when integrating with other services since it uses basic OAuth 2 primitives.

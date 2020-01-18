@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
   adds a new `cli.UseAuth(typeName, AuthHandler)` method that can be used to
   register new auth types by name. This is *backward compatible* and the
   existing (but now deprecated) credentials calls continue to work, but cannot
-  be used in conjuction with the new auth system.
+  be used in conjuction with the new multi-auth system.
 
 ## 2020-01-10
 - Add support for OAuth2 Authorization Code with PKCE https://oauth.net/2/pkce/
