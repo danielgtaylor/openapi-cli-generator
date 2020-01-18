@@ -161,6 +161,12 @@ func UseAuth(typeName string, handler AuthHandler) {
 	if typeName == "" {
 		// Backward-compatibility use-case without an explicit type. Set up the
 		// `add-profile` command as the only way to authenticate.
+		if authAddCommand.Run != nil {
+			// This fallback code path was already used, so we must be registering
+			// a *second* anonymous auth type, which is not allowed.
+			panic("register auth type names to use multi-auth")
+		}
+
 		authAddCommand.Use = "add-profile" + use
 		authAddCommand.Short = "Add a new named authentication profile"
 		authAddCommand.Args = cobra.ExactArgs(1 + len(keys))
