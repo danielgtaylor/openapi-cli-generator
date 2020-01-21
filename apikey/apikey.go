@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
-	"gopkg.in/h2non/gentleman.v2/context"
+	"github.com/rs/zerolog"
 )
 
 // Location defines how a parameter is sent.
@@ -23,38 +23,52 @@ const (
 
 const apiKey = "api_key"
 
+// Handler sets up the API key authentication flow.
+type Handler struct {
+	Name string
+	In   Location
+	Keys []string
+}
+
+// ProfileKeys returns the key names for fields to store in the profile.
+func (h *Handler) ProfileKeys() []string {
+	return append([]string{apiKey}, h.Keys...)
+}
+
+// OnRequest gets run before the request goes out on the wire.
+func (h *Handler) OnRequest(log *zerolog.Logger, request *http.Request) error {
+	profile := cli.GetProfile()
+
+	switch h.In {
+	case LocationHeader:
+		if request.Header.Get(h.Name) == "" {
+			request.Header.Add(h.Name, profile[apiKey])
+		}
+	case LocationQuery:
+		if request.URL.Query().Get(h.Name) == "" {
+			query := request.URL.Query()
+			query.Set(h.Name, profile[apiKey])
+			request.URL.RawQuery = query.Encode()
+		}
+	case LocationCookie:
+		if c, err := request.Cookie(h.Name); err != nil || c == nil {
+			request.AddCookie(&http.Cookie{
+				Name:  h.Name,
+				Value: profile[apiKey],
+			})
+		}
+	}
+
+	return nil
+}
+
 // Init sets up the API key client authentication. Must be called *after* you
 // have called `cli.Init()`. Passing `extra` values will set additional custom
 // keys to store for each profile.
 func Init(name string, in Location, extra ...string) {
-	cli.InitCredentials(
-		cli.ProfileKeys(append([]string{apiKey}, extra...)...),
-		cli.ProfileListKeys(apiKey),
-	)
-
-	cli.Client.UseRequest(func(ctx *context.Context, h context.Handler) {
-		profile := cli.GetProfile()
-
-		switch in {
-		case LocationHeader:
-			if ctx.Request.Header.Get(name) == "" {
-				ctx.Request.Header.Add(name, profile[apiKey])
-			}
-		case LocationQuery:
-			if ctx.Request.URL.Query().Get(name) == "" {
-				query := ctx.Request.URL.Query()
-				query.Set(name, profile[apiKey])
-				ctx.Request.URL.RawQuery = query.Encode()
-			}
-		case LocationCookie:
-			if c, err := ctx.Request.Cookie(name); err != nil || c == nil {
-				ctx.Request.AddCookie(&http.Cookie{
-					Name:  name,
-					Value: profile[apiKey],
-				})
-			}
-		}
-
-		h.Next(ctx)
+	cli.UseAuth("", &Handler{
+		Name: name,
+		In:   in,
+		Keys: extra,
 	})
 }

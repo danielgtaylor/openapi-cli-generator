@@ -324,14 +324,14 @@ func main() {
   clientID := "abc123"
   issuer := "https://mycompany.auth0.com/"
 
-  oauth.InitAuthCode(clientID, issuer+"authorize", issuer+"oauth/token",
-    oauth.Scopes("offline_access"),
-		oauth.Extra("audience"),
-		oauth.GetParams(func(profile map[string]string) url.Values {
-			return url.Values{
-				"audience": {profile["audience"]},
-			}
-		}))
+  cli.UseAuth("user", &oauth.AuthCodeHandler{
+    ClientID: "clientID",
+    AuthorizeURL: issuer+"authorize",
+    TokenURL: issuer+"oauth/token",
+    Keys: []string{"audience"},
+    Params: []string{"audience"},
+    Scopes: []string{"offline_access"},
+  })
 
   // TODO: Register API commands here
   // ...
@@ -343,7 +343,9 @@ func main() {
 Note that there is a convenience module when using Auth0 specifically, allowing you to do this:
 
 ```go
-auth0.InitAuthCode(clientID, issuer)
+auth0.InitAuthCode(clientID, issuer,
+  auth0.Type("user"),
+  auth0.Scopes("offline_access"))
 ```
 
 The expanded example above is more useful when integrating with other services since it uses basic OAuth 2 primitives.
