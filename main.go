@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -420,7 +421,9 @@ func escapeString(value string) string {
 }
 
 func slug(operationID string) string {
-	transformed := strings.ToLower(operationID)
+	re, _ := regexp.Compile("([a-z])([A-Z])")
+	transformed := re.ReplaceAllString(operationID, "$1-$2")
+	transformed = strings.ToLower(transformed)
 	transformed = strings.Replace(transformed, "_", "-", -1)
 	transformed = strings.Replace(transformed, " ", "-", -1)
 	return transformed
