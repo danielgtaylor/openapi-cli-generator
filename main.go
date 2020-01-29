@@ -282,17 +282,17 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 			}
 
 			o := &Operation{
-				HandlerName:    slug(name),
-				GoName:         toGoName(name, true),
-				Use:            use,
-				Aliases:        aliases,
-				Short:          short,
-				Long:           escapeString(description),
-				Method:         method,
-				CanHaveBody:    method == "Post" || method == "Put" || method == "Patch",
-				ReturnType:     returnType,
-				Path:           path,
-				AllParams:      params,
+				HandlerName: Slug(name),
+				GoName:      toGoName(name, true),
+				Use:         use,
+				Aliases:     aliases,
+				Short:       short,
+				Long:        escapeString(description),
+				Method:      method,
+				CanHaveBody: method == "Post" || method == "Put" || method == "Patch",
+				ReturnType:  returnType,
+				Path:        path,
+				AllParams:   params,
 				RequiredParams: requiredParams,
 				OptionalParams: optionalParams,
 				MediaType:      reqMt,
@@ -326,7 +326,7 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 		}
 
 		for name, waiter := range waiters {
-			waiter.CLIName = slug(name)
+			waiter.CLIName = Slug(name)
 			waiter.GoName = toGoName(name+"-waiter", true)
 			waiter.Operation = operationMap[waiter.OperationID]
 			waiter.Use = usage(name, waiter.Operation.RequiredParams)
@@ -420,7 +420,7 @@ func escapeString(value string) string {
 	return transformed
 }
 
-func slug(operationID string) string {
+func Slug(operationID string) string {
 	re, _ := regexp.Compile("([a-z])([A-Z])")
 	transformed := re.ReplaceAllString(operationID, "$1-$2")
 	transformed = strings.ToLower(transformed)
@@ -430,10 +430,10 @@ func slug(operationID string) string {
 }
 
 func usage(name string, requiredParams []*Param) string {
-	usage := slug(name)
+	usage := Slug(name)
 
 	for _, p := range requiredParams {
-		usage += " " + slug(p.Name)
+		usage += " " + Slug(p.Name)
 	}
 
 	return usage
@@ -465,7 +465,7 @@ func getParams(path *openapi3.PathItem, httpMethod string) []*Param {
 				}
 			}
 
-			cliName := slug(p.Value.Name)
+			cliName := Slug(p.Value.Name)
 			if p.Value.Extensions[ExtName] != nil {
 				cliName = extStr(p.Value.Extensions[ExtName])
 			}
@@ -634,7 +634,7 @@ func generate(cmd *cobra.Command, args []string) {
 
 	funcs := template.FuncMap{
 		"escapeStr": escapeString,
-		"slug":      slug,
+		"Slug":      Slug,
 		"title":     strings.Title,
 	}
 
