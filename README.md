@@ -64,6 +64,7 @@ $ my-cli --help
 
 Several extensions properties may be used to change the behavior of the CLI.
 
+<<<<<<< HEAD
 | Name                | Description                                                        |
 | ------------------- | ------------------------------------------------------------------ |
 | `x-cli-aliases`     | Sets up command aliases for operations.                            |
@@ -72,6 +73,7 @@ Several extensions properties may be used to change the behavior of the CLI.
 | `x-cli-hidden`      | Hide this path, or operation.                                      |
 | `x-cli-name`        | Provide an alternate name for the CLI.                             |
 | `x-cli-waiters`     | Generate commands/params to wait until a certain state is reached. |
+| `x-cli-cmd-groups`  | Describe CLI commands groups.                                      |
 
 ### Aliases
 
@@ -225,6 +227,189 @@ The following selectors are available:
 | `response.status` | Response HTTP status code | -              | `response.status`               |
 | `response.header` | Response HTTP header      | Header name    | `response.header#content-type`  |
 | `response.body`   | Response body query       | JMESPath query | `response.body#orders[].status` |
+
+### Commands Grouping
+
+By default all CLI commands are exposed at the root level, however it is possible to group contextually related
+commands together. It works by defining a `x-cli-cmd-groups` section at the root of the API spec to describe the
+groups structure. Optionally, groups can be nested under another group using the `parent` keyword in order to create
+a hierarchy.
+
+```yaml
+# cli.yaml
+x-cli-cmd-groups:
+  blog:
+    short: Manage blogs
+    long: The commands in this group let you manage your blogs
+  post:
+    short: Manage posts
+    long: The commands in this group let you manage your blog posts
+    parent: blog
+  media:
+    short: Manage media
+    long: The commands in this group let you manage your media files
+    parent: blog
+  user:
+    short: Manage users
+    long: The commands in this group let you manage your users
+```
+
+Once you have defined your command groups, add a `x-cli-cmd-group` entry at operation level to assign an operation to
+a group:
+
+```yaml
+# cli.yaml
+paths:
+  /blog:
+    post:
+      operationId: create-blog
+      description: Create a blog
+      x-cli-cmd-group: blog
+    get:
+      operationId: list-blogs
+      description: List blogs
+      x-cli-cmd-group: blog
+  /blog/{blogid}:
+    put:
+      operationId: update-blog
+      description: Update a blog
+      x-cli-cmd-group: blog
+    delete:
+      operationId: delete-blog
+      description: Delete a blog
+      x-cli-cmd-group: blog
+  /blog/{blogid}/post:
+    get:
+      operationId: list-post
+      description: List posts
+      x-cli-cmd-group: post
+    post:
+      operationId: create-post
+      description: Create a post
+      x-cli-cmd-group: post
+  /blog/{blogid}/post/{postid}:
+    get:
+      operationId: show-post
+      description: Show a post
+      x-cli-cmd-group: post
+    put:
+      operationId: update-post
+      description: Update a post
+      x-cli-cmd-group: post
+    delete:
+      operationId: delete-post
+      description: Delete a post
+      x-cli-cmd-group: post
+  /blog/{blogid}/media:
+    get:
+      operationId: list-media
+      description: List media files
+      x-cli-cmd-group: media
+    post:
+      operationId: upload-media
+      description: Upload a media file
+      x-cli-cmd-group: media
+  /blog/{blogid}/media/{mediaid}:
+    get:
+      operationId: show-media
+      description: Show a media file
+      x-cli-cmd-group: media
+    delete:
+      operationId: delete-media
+      description: Delete a media file
+      x-cli-cmd-group: media
+  /user:
+    post:
+      operationId: create-user
+      description: Create a user
+      x-cli-cmd-group: user
+    get:
+      operationId: list-user
+      description: List users
+      x-cli-cmd-group: user
+  /user/{userid}:
+    get:
+      operationId: show-user
+      description: Show a user
+      x-cli-cmd-group: user
+    delete:
+      operationId: delete-user
+      description: Delete a user
+      x-cli-cmd-group: user
+```
+
+This sample configuration will result in the following CLI commands hierarchy:
+
+```
+$ ./cli -h
+Usage:
+  cli [command]
+
+Available Commands:
+  blog        Manage blogs
+  help        Help about any command
+  help-config Show CLI configuration help
+  help-input  Show CLI input help
+  user        Manage users
+
+$ ./cli blog -h
+The commands in this group let you manage your blogs
+
+Usage:
+  cli blog [command]
+
+Available Commands:
+  create      Create a blog
+  delete      Delete a blog
+  list        List blogs
+  media       Manage media
+  post        Manage posts
+  update      Update a blog
+
+$ ./cli blog post -h
+The commands in this group let you manage your blog posts
+
+Usage:
+  cli blog post [command]
+
+Available Commands:
+  create      Create a post
+  delete      Delete a post
+  list        List posts
+  show        Show a post
+  update      Update a post
+
+# etc.
+```
+
+Without grouping, the resulting commands look like this:
+
+```
+$ ./cli
+Usage:
+  cli [command]
+
+Available Commands:
+  create-blog  Create a blog
+  create-post  Create a post
+  create-user  Create a user
+  delete-blog  Delete a blog
+  delete-media Delete a media file
+  delete-post  Delete a post
+  delete-user  Delete a user
+  help         Help about any command
+  help-config  Show CLI configuration help
+  help-input   Show CLI input help
+  list-blog    List blogs
+  list-media   List media files
+  list-post    List posts
+  list-user    List users
+  show-media   Show a media file
+  show-post    Show a post
+  update-blog  Update a blog
+  update-post  Update a post
+  upload-media Upload a media file
+```
 
 ## Customization
 

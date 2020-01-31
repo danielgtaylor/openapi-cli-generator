@@ -28,6 +28,8 @@ const (
 	ExtIgnore      = "x-cli-ignore"
 	ExtHidden      = "x-cli-hidden"
 	ExtName        = "x-cli-name"
+	ExtCmdGroups   = "x-cli-cmd-groups"
+	ExtCmdGroup    = "x-cli-cmd-group"
 	ExtWaiters     = "x-cli-waiters"
 )
 
@@ -64,7 +66,17 @@ type Operation struct {
 	Examples       []string
 	Hidden         bool
 	NeedsResponse  bool
+	Group          *OperationGroup
 	Waiters        []*WaiterParams
+}
+
+// OperationGroup describes a grouping of operations to be nested under a same level.
+type OperationGroup struct {
+	GoName string
+	Name   string
+	Short  string
+	Long   string
+	Parent *OperationGroup
 }
 
 // Waiter describes a special command that blocks until a condition has been
@@ -124,6 +136,7 @@ type OpenAPI struct {
 	Description  string
 	Servers      []*Server
 	Operations   []*Operation
+	Groups       []*OperationGroup
 	Waiters      []*Waiter
 }
 
@@ -153,6 +166,58 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 			Description: s.Description,
 			URL:         s.URL,
 		})
+	}
+
+	if api.Extensions[ExtCmdGroups] != nil {
+		result.Groups = make([]*OperationGroup, 0)
+
+		groups := make(map[string]struct {
+			Name   string
+			Short  string
+			Long   string
+			Parent string
+		})
+		if err := json.Unmarshal(api.Extensions[ExtCmdGroups].(json.RawMessage), &groups); err != nil {
+			panic(err)
+		}
+
+		// Sort groups alphabetically
+		names := func() []string {
+			gn := make([]string, 0)
+			for name := range groups {
+				gn = append(gn, name)
+			}
+			return sort.StringSlice(gn)
+		}()
+
+		for _, name := range names {
+			result.Groups = append(result.Groups, &OperationGroup{
+				GoName: toGoName(name, true),
+				Name:   name,
+				Short:  groups[name].Short,
+				Long:   groups[name].Long,
+			})
+		}
+
+		// Link groups to their parent
+		for _, group := range result.Groups {
+			if parentName := groups[group.Name].Parent; parentName != "" {
+				if parentName == group.Name {
+					panic(fmt.Errorf("cyclic relationship detected: group %q is parent to itself", parentName))
+				}
+
+				// Look for referenced parent in known groups
+				for i := range result.Groups {
+					if result.Groups[i].Name == parentName {
+						group.Parent = result.Groups[i]
+						break
+					}
+				}
+				if group.Parent == nil {
+					panic(fmt.Errorf("unknown parent %q for group %q", parentName, group.Name))
+				}
+			}
+		}
 	}
 
 	// Convenience map for operation ID -> operation
@@ -199,7 +264,11 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 			optionalParams := getOptionalParams(params)
 			short := operation.Summary
 			if short == "" {
-				short = name
+				if operation.Description != "" {
+					short = operation.Description
+				} else {
+					short = name
+				}
 			}
 
 			use := usage(name, requiredParams)
@@ -255,6 +324,21 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 				json.Unmarshal(operation.Extensions[ExtHidden].(json.RawMessage), &hidden)
 			}
 
+			groupName := ""
+			var group *OperationGroup
+			if operation.Extensions[ExtCmdGroup] != nil {
+				json.Unmarshal(operation.Extensions[ExtCmdGroup].(json.RawMessage), &groupName)
+				if groupName != "" {
+					for _, g := range result.Groups {
+						if g.Name == groupName {
+							result.Imports.Strings = true
+							group = g
+							break
+						}
+					}
+				}
+			}
+
 			returnType := "interface{}"
 		returnTypeLoop:
 			for code, ref := range operation.Responses {
@@ -297,6 +381,7 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 				MediaType:      reqMt,
 				Examples:       examples,
 				Hidden:         hidden,
+				Group:          group,
 			}
 
 			operationMap[operation.OperationID] = o

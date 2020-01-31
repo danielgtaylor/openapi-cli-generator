@@ -57,6 +57,14 @@ func {{ $api }}Servers() []map[string]string {
 	}
 }
 
+{{ range $group := .Groups }}
+	var cmdGroup{{ $group.GoName }} = &cobra.Command{
+		Use: "{{ $group.Name }}",
+		Short: "{{ $group.Short }}",
+		Long: `{{ $group.Long }}`,
+	}
+{{ end }}
+
 {{ range $operation := .Operations }}
 	// {{ $apiPublic }}{{ .GoName }} {{ .Short }}
 	func {{ $apiPublic }}{{ .GoName }}({{ range .RequiredParams }}{{ .GoName }} string, {{ end }}params *viper.Viper{{ if .CanHaveBody }}, body string{{ end }}) (*gentleman.Response, {{ .ReturnType }}, error) {
@@ -188,6 +196,14 @@ func {{ $api }}Register(subcommand bool) {
 		cli.Root.Long = cli.Markdown("{{ .Description }}")
 	}
 
+	{{ range $group := .Groups }}
+		{{ if $group.Parent }}
+			cmdGroup{{ $group.Parent.GoName }}.AddCommand(cmdGroup{{ $group.GoName }})
+		{{ else }}
+			root.AddCommand(cmdGroup{{ $group.GoName }})
+		{{ end }}
+	{{ end }}
+
 	{{ if .Waiters }}
 		wait := &cobra.Command{
 			Use: "wait",
@@ -306,7 +322,12 @@ func {{ $api }}Register(subcommand bool) {
 					{{- end }}
 				},
 			}
+		{{ if $operation.Group }}
+			cmd.Use = strings.Replace(cmd.Use, "-{{ $operation.Group.Name }}", "", 1)
+			cmdGroup{{ $operation.Group.GoName }}.AddCommand(cmd)
+		{{ else }}
 			root.AddCommand(cmd)
+		{{ end }}
 
 			{{ template "params" . }}
 		}()
