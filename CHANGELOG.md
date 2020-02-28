@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+## 2020-02-27
+- Add [enhanced JMESPath](https://github.com/danielgtaylor/go-jmespath-plus) support.
+
 ## 2020-01-17
 - Add support for multi-auth, where two different auth schemes can be used. This
   adds a new `cli.UseAuth(typeName, AuthHandler)` method that can be used to

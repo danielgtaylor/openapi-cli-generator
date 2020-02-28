@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strings"
 
-	jmespath "github.com/jmespath/go-jmespath"
+	jmespath "github.com/danielgtaylor/go-jmespath-plus"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/h2non/gentleman.v2/context"
 )
