@@ -651,7 +651,12 @@ func generate(cmd *cobra.Command, args []string) {
 		panic(err)
 	}
 
-	writeFormattedFile(shortName+".go", []byte(sb.String()))
+	output := shortName+".go"
+	if o, _ := cmd.Flags().GetString("output"); o != "" {
+		output = o
+	}
+
+	writeFormattedFile(output, []byte(sb.String()))
 }
 
 func main() {
@@ -664,12 +669,15 @@ func main() {
 		Run:   initCmd,
 	})
 
-	root.AddCommand(&cobra.Command{
+	generateCmd := &cobra.Command{
 		Use:   "generate <api-spec>",
 		Short: "Generate a `commands.go` file from an OpenAPI spec",
 		Args:  cobra.ExactArgs(1),
 		Run:   generate,
-	})
+	}
+	generateCmd.Flags().StringP("output", "o", "",
+		"specify an alternative output file for generated code")
+	root.AddCommand(generateCmd)
 
 	root.Execute()
 }
