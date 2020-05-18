@@ -1,4 +1,4 @@
-module github.com/danielgtaylor/openapi-cli-generator
+module github.com/kalzoo/openapi-cli-generator
 
 go 1.12
 
@@ -31,4 +31,8 @@ require (
 	google.golang.org/appengine v1.2.0 // indirect
 	gopkg.in/h2non/gentleman.v2 v2.0.3
 	gopkg.in/yaml.v2 v2.2.4
+)
+
+replace (
+	github.com/danielgtaylor/openapi-cli-generator => github.com/kalzoo/openapi-cli-generator
 )
