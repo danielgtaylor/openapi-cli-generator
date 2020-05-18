@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"context"
 
 	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -42,26 +44,55 @@ func open(url string) error {
 // authHandler is an HTTP handler that takes a channel and sends the `code`
 // query param when it gets a request.
 type authHandler struct {
-	c chan string
+	codeChan      chan string
+	errorChan     chan error
+	expectedState string
 }
 
+// We use a simple HTTP server to receive the redirected call from the auth server containing the
+// authorization code. The call may not include a token; it may include only an error message
+// explaining the reason for the call's failure.
 func (h authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.c <- r.URL.Query().Get("code")
+	var code string
+	var message string
+
+	state := r.URL.Query().Get("state")
+
+	if h.expectedState != state {
+		message = fmt.Sprintf("Incorrect state parameter in response; expected %s, received %s", h.expectedState, state)
+		h.errorChan <- errors.New(message)
+	} else {
+		code = r.URL.Query().Get("code")
+
+		if code == "" {
+			errorDescription := r.URL.Query().Get("error_description")
+			message = fmt.Sprintf("Authentication failed. %s", errorDescription)
+
+			h.errorChan <- errors.New(errorDescription)
+		} else {
+			h.codeChan <- code
+			message = "Login successful. Please return to the terminal. You may now close this window."
+		}
+	}
+
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte("<html><body><p>Login successful. Please return to the terminal. You may now close this window.</p></body></html>"))
+	body := fmt.Sprintf("<html><body><p>%s</p></body></html>", message)
+	w.Write([]byte(body))
 }
 
 // AuthorizationCodeTokenSource with PKCE as described in:
 // https://www.oauth.com/oauth2-servers/pkce/
-// This works by running a local HTTP server on port 8484 and then having the
+// This works by running a local HTTP server on a configurable port and then having the
 // user log in through a web browser, which redirects to the local server with
 // an authorization code. That code is then used to make another HTTP request
-// to fetch an auth token (and refresh token). That token is then in turn
+// to fetch an auth token (and refresh token). That token may then be
 // used to make requests against the API.
 type AuthorizationCodeTokenSource struct {
 	ClientID       string
 	AuthorizeURL   string
 	TokenURL       string
+	RedirectURI    *url.URL
+	State          string
 	EndpointParams *url.Values
 	Scopes         []string
 }
@@ -81,8 +112,16 @@ func (ac *AuthorizationCodeTokenSource) Token() (*oauth2.Token, error) {
 	shaBytes := sha256.Sum256([]byte(verifier))
 	challenge := base64.RawURLEncoding.EncodeToString(shaBytes[:])
 
+	redirectURI := ac.RedirectURI
+
+	if redirectURI == nil {
+		redirectURI, _ = url.Parse("http://localhost:8484")
+	}
+
+	state := uuid.New().String()
+
 	// Generate a URL with the challenge to have the user log in.
-	url := fmt.Sprintf("%s?response_type=code&code_challenge=%s&code_challenge_method=S256&client_id=%s&redirect_uri=http://localhost:8484/&scope=%s", ac.AuthorizeURL, challenge, ac.ClientID, strings.Join(ac.Scopes, `%20`))
+	url := fmt.Sprintf("%s?response_type=code&code_challenge=%s&code_challenge_method=S256&client_id=%s&redirect_uri=%s&scope=%s&state=%s", ac.AuthorizeURL, challenge, ac.ClientID, redirectURI.String(), strings.Join(ac.Scopes, `%20`), state)
 
 	if len(*ac.EndpointParams) > 0 {
 		url += "&" + ac.EndpointParams.Encode()
@@ -90,12 +129,15 @@ func (ac *AuthorizationCodeTokenSource) Token() (*oauth2.Token, error) {
 
 	// Run server before opening the user's browser so we are ready for any redirect.
 	codeChan := make(chan string)
+	errorChan := make(chan error)
 	handler := authHandler{
-		c: codeChan,
+		codeChan:      codeChan,
+		errorChan:     errorChan,
+		expectedState: string(state),
 	}
 
 	s := &http.Server{
-		Addr:           ":8484",
+		Addr:           fmt.Sprintf(":%s", redirectURI.Port()),
 		Handler:        handler,
 		ReadTimeout:    5 * time.Second,
 		WriteTimeout:   5 * time.Second,
@@ -105,7 +147,7 @@ func (ac *AuthorizationCodeTokenSource) Token() (*oauth2.Token, error) {
 	go func() {
 		// Run in a goroutine until the server is closed or we get an error.
 		if err := s.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatal().Err(err).Msg("Server exited unexpectedly")
+			log.Fatal().Err(err).Msg("Authentication failed; server exited unexpectedly")
 		}
 	}()
 
@@ -117,10 +159,19 @@ func (ac *AuthorizationCodeTokenSource) Token() (*oauth2.Token, error) {
 	// Get code from handler, exchange it for a token, and then return it. This
 	// channel read blocks until one code becomes available.
 	// There is currently no timeout.
-	code := <-codeChan
+	var code string
+
+	select {
+	case code = <-codeChan:
+		if code == "" {
+			log.Fatal().Msg("Authentication failed: no authorization code returned from server")
+		}
+	case err := <-errorChan:
+		log.Fatal().Err(err).Msg("Authentication failed")
+	}
 	s.Shutdown(context.Background())
 
-	payload := fmt.Sprintf("grant_type=authorization_code&client_id=%s&code_verifier=%s&code=%s&redirect_uri=http://localhost:8484/", ac.ClientID, verifier, code)
+	payload := fmt.Sprintf("grant_type=authorization_code&client_id=%s&code_verifier=%s&code=%s&redirect_uri=%s", ac.ClientID, verifier, code, redirectURI.String())
 
 	return requestToken(ac.TokenURL, payload)
 }
@@ -131,6 +182,7 @@ type AuthCodeHandler struct {
 	ClientID     string
 	AuthorizeURL string
 	TokenURL     string
+	RedirectURI  *url.URL
 	Keys         []string
 	Params       []string
 	Scopes       []string
@@ -163,6 +215,7 @@ func (h *AuthCodeHandler) OnRequest(log *zerolog.Logger, request *http.Request) 
 			ClientID:       h.ClientID,
 			AuthorizeURL:   h.AuthorizeURL,
 			TokenURL:       h.TokenURL,
+			RedirectURI:    h.RedirectURI,
 			EndpointParams: &params,
 			Scopes:         h.Scopes,
 		}
