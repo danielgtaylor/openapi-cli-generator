@@ -128,12 +128,13 @@ func (ac *AuthorizationCodeTokenSource) Token() (*oauth2.Token, error) {
 // AuthCodeHandler sets up the OAuth 2.0 authorization code with PKCE authentication
 // flow.
 type AuthCodeHandler struct {
-	ClientID     string
-	AuthorizeURL string
-	TokenURL     string
-	Keys         []string
-	Params       []string
-	Scopes       []string
+	ClientID      string
+	AuthorizeURL  string
+	TokenURL      string
+	Keys          []string
+	Params        []string
+	Scopes        []string
+	DefaultValues map[string]string
 
 	getParamsFunc func(profile map[string]string) url.Values
 }
@@ -156,7 +157,11 @@ func (h *AuthCodeHandler) OnRequest(log *zerolog.Logger, request *http.Request) 
 			params = h.getParamsFunc(profile)
 		}
 		for _, name := range h.Params {
-			params.Add(name, profile[name])
+			if val, ok := profile[name]; ok {
+				params.Add(name, val)
+			} else {
+				params.Add(name, h.DefaultValues[name])
+			}
 		}
 
 		source := &AuthorizationCodeTokenSource{
