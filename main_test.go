@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	main "github.com/danielgtaylor/openapi-cli-generator"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -70,4 +71,28 @@ func TestEchoSuccess(t *testing.T) {
 	}
 
 	assert.JSONEq(t, "{\"hello\": \"world\", \"q\": \"foo\", \"request-id\": \"bar\"}", string(out))
+}
+
+func Test_slug(t *testing.T) {
+	type args struct {
+		operationID string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{name: "lowercase with spaces", args: args{operationID: "get all articles"}, want: "get-all-articles"},
+		{name: "Mixed sentence case", args: args{operationID: "Get all articles"}, want: "get-all-articles"},
+		{name: "lower snake case", args: args{operationID: "get_all_articles"}, want: "get-all-articles"},
+		{name: "upper snake case", args: args{operationID: "GET_ALL_ARTICLES"}, want: "get-all-articles"},
+		{name: "kebab case", args: args{operationID: "get-all-articles"}, want: "get-all-articles"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := main.Slug(tt.args.operationID); got != tt.want {
+				t.Errorf("Slug() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
