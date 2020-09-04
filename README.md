@@ -7,6 +7,15 @@
 
 <img alt="openapi-to-cli" src="https://user-images.githubusercontent.com/106826/46594546-a8bb2480-ca88-11e8-90ec-fb87e51009a8.png">
 
+---
+
+**Note: this project has been superceded by Restish, an advanced auto-configured OpenAPI CLI that just works:**
+
+- https://rest.sh/
+- https://github.com/danielgtaylor/restish
+
+---
+
 This project can be used to generate CLIs from OpenAPI 3 specs. The generated CLIs have the following features:
 
 - Authentication support for API keys and [Auth0](https://auth0.com/).
