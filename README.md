@@ -64,7 +64,6 @@ $ my-cli --help
 
 Several extensions properties may be used to change the behavior of the CLI.
 
-<<<<<<< HEAD
 | Name                | Description                                                        |
 | ------------------- | ------------------------------------------------------------------ |
 | `x-cli-aliases`     | Sets up command aliases for operations.                            |
@@ -73,7 +72,7 @@ Several extensions properties may be used to change the behavior of the CLI.
 | `x-cli-hidden`      | Hide this path, or operation.                                      |
 | `x-cli-name`        | Provide an alternate name for the CLI.                             |
 | `x-cli-waiters`     | Generate commands/params to wait until a certain state is reached. |
-| `x-cli-cmd-groups`  | Describe CLI commands groups.                                      |
+| `x-cli-cmd-groups`  | Describe CLI command groups.                                       |
 
 ### Aliases
 
