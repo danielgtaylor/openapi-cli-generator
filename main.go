@@ -264,11 +264,7 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 			optionalParams := getOptionalParams(params)
 			short := operation.Summary
 			if short == "" {
-				if operation.Description != "" {
-					short = operation.Description
-				} else {
-					short = name
-				}
+				short = name
 			}
 
 			use := usage(name, requiredParams)
