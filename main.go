@@ -419,11 +419,53 @@ func escapeString(value string) string {
 	return transformed
 }
 
+// Generates the "slug" string for an operation.
 func slug(operationID string) string {
-	transformed := strings.ToLower(operationID)
-	transformed = strings.Replace(transformed, "_", "-", -1)
-	transformed = strings.Replace(transformed, " ", "-", -1)
-	return transformed
+	return toCamelInitCase(operationID, false)
+}
+
+var uppercaseAcronym = map[string]string{
+	"ID": "id",
+}
+
+// Converts a string to CamelCase. From https://github.com/iancoleman/strcase/blob/5e0ad225083860c70d196c6ebbb2218518df8ccd/camel.go
+func toCamelInitCase(s string, initCase bool) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+	if a, ok := uppercaseAcronym[s]; ok {
+		s = a
+	}
+
+	n := strings.Builder{}
+	n.Grow(len(s))
+	capNext := initCase
+	for i, v := range []byte(s) {
+		vIsCap := v >= 'A' && v <= 'Z'
+		vIsLow := v >= 'a' && v <= 'z'
+		if capNext {
+			if vIsLow {
+				v += 'A'
+				v -= 'a'
+			}
+		} else if i == 0 {
+			if vIsCap {
+				v += 'a'
+				v -= 'A'
+			}
+		}
+		if vIsCap || vIsLow {
+			n.WriteByte(v)
+			capNext = false
+		} else if vIsNum := v >= '0' && v <= '9'; vIsNum {
+			n.WriteByte(v)
+			capNext = true
+		} else {
+			capNext = v == '_' || v == ' ' || v == '-' || v == '.'
+		}
+	}
+	return n.String()
 }
 
 func usage(name string, requiredParams []*Param) string {
