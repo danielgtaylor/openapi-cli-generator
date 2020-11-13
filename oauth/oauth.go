@@ -33,6 +33,7 @@ func GetParams(f func(profile map[string]string) url.Values) func(*config) error
 	return func(c *config) error {
 		c.getParams = f
 		return nil
+
 	}
 }
 
@@ -77,13 +78,13 @@ func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.
 	tokenKey := "profiles." + viper.GetString("profile") + ".token"
 	refreshKey := "profiles." + viper.GetString("profile") + ".refresh"
 
-	expiry := cli.Cache.GetTime(expiresKey)
+	expiry := cli.Creds.GetTime(expiresKey)
 	if !expiry.IsZero() {
 		log.Debug().Msg("Loading token from cache.")
 		cached = &oauth2.Token{
-			AccessToken:  cli.Cache.GetString(tokenKey),
-			RefreshToken: cli.Cache.GetString(refreshKey),
-			TokenType:    cli.Cache.GetString(typeKey),
+			AccessToken:  cli.Creds.GetString(tokenKey),
+			RefreshToken: cli.Creds.GetString(refreshKey),
+			TokenType:    cli.Creds.GetString(typeKey),
 			Expiry:       expiry,
 		}
 	}
@@ -104,19 +105,19 @@ func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.
 		// the new values to the CLI cache.
 		log.Debug().Msg("Token refreshed. Updating cache.")
 
-		cli.Cache.Set(expiresKey, token.Expiry)
-		cli.Cache.Set(typeKey, token.Type())
-		cli.Cache.Set(tokenKey, token.AccessToken)
+		cli.Creds.Set(expiresKey, token.Expiry)
+		cli.Creds.Set(typeKey, token.Type())
+		cli.Creds.Set(tokenKey, token.AccessToken)
 
 		if token.RefreshToken != "" {
 			// Only set the refresh token if present. This prevents overwriting it
 			// after using a refresh token, because the newly returned token won't
 			// have another refresh token set on it (you keep using the same one).
-			cli.Cache.Set(refreshKey, token.RefreshToken)
+			cli.Creds.Set(refreshKey, token.RefreshToken)
 		}
 
 		// Save the cache to disk.
-		if err := cli.Cache.WriteConfig(); err != nil {
+		if err := cli.Creds.WriteConfig(); err != nil {
 			return err
 		}
 	}

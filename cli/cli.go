@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -22,9 +21,6 @@ import (
 
 // Root command (entrypoint) of the CLI.
 var Root *cobra.Command
-
-// Cache is used to store temporary data between runs.
-var Cache *viper.Viper
 
 // Client makes HTTP requests and parses the responses.
 var Client *gentleman.Client
@@ -56,7 +52,6 @@ type Config struct {
 // Init will set up the CLI.
 func Init(config *Config) {
 	initConfig(config.AppName, config.EnvPrefix)
-	initCache(config.AppName)
 	authInitialized = false
 
 	// Determine if we are using a TTY or colored output is forced-on.
@@ -170,23 +165,6 @@ func initConfig(appName, envPrefix string) {
 	viper.Set("app-name", appName)
 	viper.Set("config-directory", configDir)
 	viper.SetDefault("server-index", 0)
-}
-
-func initCache(appName string) {
-	Cache = viper.New()
-	Cache.SetConfigName("cache")
-	Cache.AddConfigPath("$HOME/." + appName + "/")
-
-	// Write a blank cache if no file is already there. Later you can use
-	// cli.Cache.SaveConfig() to write new values.
-	filename := path.Join(viper.GetString("config-directory"), "cache.json")
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		if err := ioutil.WriteFile(filename, []byte("{}"), 0600); err != nil {
-			panic(err)
-		}
-	}
-
-	Cache.ReadInConfig()
 }
 
 func showHelpConfig(cmd *cobra.Command, args []string) {

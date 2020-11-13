@@ -231,7 +231,7 @@ func (h *AuthCodeHandler) OnRequest(log *zerolog.Logger, request *http.Request) 
 			ClientID:       h.ClientID,
 			TokenURL:       h.TokenURL,
 			EndpointParams: &params,
-			RefreshToken:   cli.Cache.GetString(refreshKey),
+			RefreshToken:   cli.Creds.GetString(refreshKey),
 			TokenSource:    source,
 		}
 

@@ -22,7 +22,6 @@ func execute(cmd string) string {
 }
 
 func TestInit(t *testing.T) {
-	Cache = nil
 	Client = nil
 	Root = nil
 
@@ -32,7 +31,6 @@ func TestInit(t *testing.T) {
 		AppName: "test",
 	})
 
-	assert.NotNil(t, Cache)
 	assert.NotNil(t, Client)
 	assert.NotNil(t, Root)
 }
