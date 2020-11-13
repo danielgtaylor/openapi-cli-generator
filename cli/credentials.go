@@ -152,7 +152,7 @@ func UseAuth(typeName string, handler AuthHandler) {
 			Creds.Set("profiles."+name+"."+strings.Replace(key, "-", "_", -1), args[i+1])
 		}
 
-		filename := path.Join(viper.GetString("config-directory"), "credentials.json")
+		filename := path.Join(viper.GetString("config-directory"), "credentials.toml")
 		if err := Creds.WriteConfigAs(filename); err != nil {
 			panic(err)
 		}
@@ -270,7 +270,7 @@ func InitCredentials(options ...func(*CredentialsFile) error) {
 				Creds.Set("profiles."+name+"."+strings.Replace(key, "-", "_", -1), args[i+1])
 			}
 
-			filename := path.Join(viper.GetString("config-directory"), "credentials.json")
+			filename := path.Join(viper.GetString("config-directory"), "credentials.toml")
 			if err := Creds.WriteConfigAs(filename); err != nil {
 				panic(err)
 			}
