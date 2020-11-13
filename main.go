@@ -13,7 +13,11 @@ import (
 	"strings"
 	"text/template"
 
+<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/shorthand"
+=======
+	"github.com/kalzoo/openapi-cli-generator/shorthand"
+>>>>>>> replace references from danielgtaylor to kalzoo github
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"

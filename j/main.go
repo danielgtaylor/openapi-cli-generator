@@ -6,7 +6,11 @@ import (
 	"os"
 	"strings"
 
+<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/shorthand"
+=======
+	"github.com/kalzoo/openapi-cli-generator/shorthand"
+>>>>>>> replace references from danielgtaylor to kalzoo github
 	toml "github.com/pelletier/go-toml"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"

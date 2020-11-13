@@ -1,8 +1,13 @@
 package auth0
 
 import (
+<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/cli"
 	"github.com/rigetti/openapi-cli-generator/oauth"
+=======
+	"github.com/kalzoo/openapi-cli-generator/cli"
+	"github.com/kalzoo/openapi-cli-generator/oauth"
+>>>>>>> replace references from danielgtaylor to kalzoo github
 )
 
 type config struct {

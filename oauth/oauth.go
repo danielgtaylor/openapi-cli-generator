@@ -7,7 +7,11 @@ import (
 	"net/http"
 	"net/url"
 
+<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/cli"
+=======
+	"github.com/kalzoo/openapi-cli-generator/cli"
+>>>>>>> replace references from danielgtaylor to kalzoo github
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
