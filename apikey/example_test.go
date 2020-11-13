@@ -3,11 +3,7 @@ package apikey
 import (
 	"fmt"
 
-<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/cli"
-=======
-	"github.com/kalzoo/openapi-cli-generator/cli"
->>>>>>> replace references from danielgtaylor to kalzoo github
 )
 
 func Example() {
@@ -21,7 +17,13 @@ func Example() {
 	Init("X-API-Key", LocationHeader)
 
 	// Mock out a profile to be used in the request.
-	cli.Creds.Set("profiles.default.api_key", "my-secret")
+	cli.Creds.Profiles["default"] = cli.Profile{
+		Info:         cli.ProfileInfo{
+			Other: map[string]interface{}{
+				"api_key": "my-secret",
+			},
+		},
+	}
 
 	// Make a request.
 	req := cli.Client.Get().URL("http://example.com/")

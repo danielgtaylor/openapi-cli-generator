@@ -15,15 +15,10 @@ import (
 
 	"context"
 
-<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/cli"
-=======
-	"github.com/kalzoo/openapi-cli-generator/cli"
->>>>>>> replace references from danielgtaylor to kalzoo github
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
@@ -204,15 +199,16 @@ func (h *AuthCodeHandler) OnRequest(log *zerolog.Logger, request *http.Request) 
 	if request.Header.Get("Authorization") == "" {
 		// No auth is set, so let's get the token either from a cache
 		// or generate a new one from the issuing server.
-		profile := cli.GetProfile()
+		profile := cli.GetActiveProfile()
 
 		params := url.Values{}
+		profileInfoMap := profile.Info.ToMap()
 		if h.getParamsFunc != nil {
 			// Backward-compatibility with old call style, only used internally.
-			params = h.getParamsFunc(profile)
+			params = h.getParamsFunc(profileInfoMap)
 		}
 		for _, name := range h.Params {
-			params.Add(name, profile[name])
+			params.Add(name, profileInfoMap[name])
 		}
 
 		source := &AuthorizationCodeTokenSource{
@@ -226,12 +222,11 @@ func (h *AuthCodeHandler) OnRequest(log *zerolog.Logger, request *http.Request) 
 
 		// Try to get a cached refresh token from the current profile and use
 		// it to wrap the auth code token source with a refreshing source.
-		refreshKey := "profiles." + viper.GetString("profile") + ".refresh"
 		refreshSource := RefreshTokenSource{
 			ClientID:       h.ClientID,
 			TokenURL:       h.TokenURL,
 			EndpointParams: &params,
-			RefreshToken:   cli.Creds.GetString(refreshKey),
+			RefreshToken:   cli.Creds.Profiles[cli.RunConfig.GetProfileName()].TokenPayload.RefreshToken,
 			TokenSource:    source,
 		}
 

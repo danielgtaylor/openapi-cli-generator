@@ -7,11 +7,7 @@ import (
 	"os"
 	"strings"
 
-<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/shorthand"
-=======
-	"github.com/kalzoo/openapi-cli-generator/shorthand"
->>>>>>> replace references from danielgtaylor to kalzoo github
 	"github.com/rs/zerolog/log"
 	yaml "gopkg.in/yaml.v2"
 )

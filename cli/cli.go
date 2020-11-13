@@ -141,6 +141,37 @@ func userHomeDir() string {
 	return os.Getenv("HOME")
 }
 
+type AuthServer struct {
+	ClientID string   `mapstructure:"client_id"`
+	Issuer   string   `mapstructure:"issuer"`
+	Keys     []string `mapstructure:"keys"`
+	ListKeys []string `mapstructure:"list_keys"`
+}
+
+type runConfig struct {
+	profile     string       `mapstructure:"profile"`
+	server      string       `mapstructure:"server"`
+	AuthServers []AuthServer `mapstructure:"auth_servers"`
+}
+
+func (rc runConfig) GetProfileName() string {
+	p := viper.GetString("profile")
+	if p == "" {
+		p = rc.profile
+	}
+	return p
+}
+
+func (rc runConfig) GetServerName() string {
+	s := viper.GetString("server")
+	if s == "" {
+		s = rc.server
+	}
+	return s
+}
+
+var RunConfig runConfig
+
 func initConfig(appName, envPrefix string) {
 	// One-time setup to ensure the path exists so we can write files into it
 	// later as needed.
@@ -153,7 +184,6 @@ func initConfig(appName, envPrefix string) {
 	viper.SetConfigName("config")
 	viper.AddConfigPath("/etc/" + appName + "/")
 	viper.AddConfigPath("$HOME/." + appName + "/")
-	viper.ReadInConfig()
 
 	// Load configuration from the environment if provided. Flags below get
 	// transformed automatically, e.g. `client-id` -> `PREFIX_CLIENT_ID`.
@@ -165,6 +195,8 @@ func initConfig(appName, envPrefix string) {
 	viper.Set("app-name", appName)
 	viper.Set("config-directory", configDir)
 	viper.SetDefault("server-index", 0)
+
+	viper.Unmarshal(&RunConfig)
 }
 
 func showHelpConfig(cmd *cobra.Command, args []string) {
@@ -261,11 +293,7 @@ Both objects and arrays can use backreferences. An object backref starts with a 
 
 Use an ¬@¬ to load the contents of a file as the value, like ¬key: @filename¬. Use the ¬~¬ modifier to disable this behavior: ¬key:~ @user¬. By default structured data is loaded when recognized. Use the ¬~¬ filename modifier to force a string: ¬key: @~filename¬. Use the ¬%¬ modifier to load as base-64 data: ¬key: @%filename¬.
 
-<<<<<<< HEAD
 See https://github.com/rigetti/openapi-cli-generator/tree/master/shorthand#readme for more info.`
-=======
-See https://github.com/kalzoo/openapi-cli-generator/tree/master/shorthand#readme for more info.`
->>>>>>> replace references from danielgtaylor to kalzoo github
 
 	fmt.Fprintln(Stdout, Markdown(strings.Replace(help, "¬", "`", -1)))
 }

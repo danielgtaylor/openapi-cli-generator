@@ -4,11 +4,7 @@ import (
 	"net/http"
 	"net/url"
 
-<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/cli"
-=======
-	"github.com/kalzoo/openapi-cli-generator/cli"
->>>>>>> replace references from danielgtaylor to kalzoo github
 	"github.com/rs/zerolog"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -44,28 +40,32 @@ func (h *ClientCredentialsHandler) OnRequest(log *zerolog.Logger, request *http.
 	if request.Header.Get("Authorization") == "" {
 		// No auth is set, so let's get the token either from a cache
 		// or generate a new one from the issuing server.
-		profile := cli.GetProfile()
-
-		if profile["client_id"] == "" {
+		profile := cli.GetActiveProfile()
+		clientID := profile.Info.GetString("client_id")
+		if clientID == "" {
 			return ErrInvalidProfile
 		}
 
-		if profile["client_secret"] == "" {
+		clientSecret := profile.Info.GetString("client_secret")
+		if clientSecret == "" {
 			return ErrInvalidProfile
 		}
 
 		params := url.Values{}
 		if h.getParamsFunc != nil {
 			// Backward-compatibility with old call style, only used internally.
-			params = h.getParamsFunc(profile)
+			params = h.getParamsFunc(profile.Info.ToMap())
 		}
 		for _, name := range h.Params {
-			params.Add(name, profile[name])
+			value, _ := profile.Info.Other[name]
+			if s, ok := value.(string); ok {
+				params.Add(name, s)
+			}
 		}
 
 		source := (&clientcredentials.Config{
-			ClientID:       profile["client_id"],
-			ClientSecret:   profile["client_secret"],
+			ClientID:       clientID,
+			ClientSecret:   clientSecret,
 			TokenURL:       h.TokenURL,
 			EndpointParams: params,
 			Scopes:         h.Scopes,

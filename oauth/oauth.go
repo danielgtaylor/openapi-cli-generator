@@ -7,11 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/cli"
-=======
-	"github.com/kalzoo/openapi-cli-generator/cli"
->>>>>>> replace references from danielgtaylor to kalzoo github
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
@@ -38,7 +34,7 @@ func GetParams(f func(profile map[string]string) url.Values) func(*config) error
 }
 
 // Extra provides the names of additional parameters to use to store information
-// in user profiles. Use `cli.GetProfile("default")["name"]` to access it.
+// in user profiles. Use `cli.GetActiveProfile.Info("default")["name"]` to access it.
 func Extra(names ...string) func(*config) error {
 	return func(c *config) error {
 		c.extra = names
@@ -72,19 +68,14 @@ func TokenMiddleware(source oauth2.TokenSource, ctx *context.Context, h context.
 func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.Request) error {
 	var cached *oauth2.Token
 
-	// Load any existing token from the CLI's cache file.
-	expiresKey := "profiles." + viper.GetString("profile") + ".expires"
-	typeKey := "profiles." + viper.GetString("profile") + ".type"
-	tokenKey := "profiles." + viper.GetString("profile") + ".token"
-	refreshKey := "profiles." + viper.GetString("profile") + ".refresh"
-
-	expiry := cli.Creds.GetTime(expiresKey)
+	profile := cli.GetActiveProfile()
+	expiry := profile.TokenPayload.ExpiresAt()
 	if !expiry.IsZero() {
 		log.Debug().Msg("Loading token from cache.")
 		cached = &oauth2.Token{
-			AccessToken:  cli.Creds.GetString(tokenKey),
-			RefreshToken: cli.Creds.GetString(refreshKey),
-			TokenType:    cli.Creds.GetString(typeKey),
+			AccessToken:  profile.TokenPayload.AccessToken,
+			RefreshToken: profile.TokenPayload.RefreshToken,
+			TokenType:    profile.TokenPayload.TokenType,
 			Expiry:       expiry,
 		}
 	}
@@ -105,19 +96,13 @@ func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.
 		// the new values to the CLI cache.
 		log.Debug().Msg("Token refreshed. Updating cache.")
 
-		cli.Creds.Set(expiresKey, token.Expiry)
-		cli.Creds.Set(typeKey, token.Type())
-		cli.Creds.Set(tokenKey, token.AccessToken)
-
-		if token.RefreshToken != "" {
-			// Only set the refresh token if present. This prevents overwriting it
-			// after using a refresh token, because the newly returned token won't
-			// have another refresh token set on it (you keep using the same one).
-			cli.Creds.Set(refreshKey, token.RefreshToken)
+		err = cli.Creds.UpdateProfileTokenPayload(token.Type(), token.AccessToken, token.RefreshToken)
+		if err != nil {
+			return err
 		}
 
 		// Save the cache to disk.
-		if err := cli.Creds.WriteConfig(); err != nil {
+		if err := cli.Creds.Write(); err != nil {
 			return err
 		}
 	}

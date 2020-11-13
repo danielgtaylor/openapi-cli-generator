@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path"
 	"strings"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/h2non/gentleman.v2/context"
+	"github.com/dgrijalva/jwt-go"
 )
 
 // AuthHandler describes a handler that can be called on a request to inject
@@ -40,7 +41,7 @@ func initAuth() {
 	authInitialized = true
 
 	// Set up the credentials file
-	InitCredentialsFile()
+	InitCredentials()
 
 	// Add base auth commands
 	authCommand = &cobra.Command{
@@ -62,14 +63,14 @@ func initAuth() {
 		Short:   "List available configured authentication profiles",
 		Args:    cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			profiles := Creds.GetStringMap("profiles")
+			profiles := Creds.Profiles
 
 			if profiles != nil {
 				// Use a map as a set to find the available auth type names.
 				types := make(map[string]bool)
-				for _, v := range profiles {
-					if typeName := v.(map[string]interface{})["type"]; typeName != nil {
-						types[typeName.(string)] = true
+				for _, profile := range profiles {
+					if profile.Info.Type != "" {
+						types[profile.Info.Type] = true
 					}
 				}
 
@@ -83,17 +84,16 @@ func initAuth() {
 					listKeys := handler.ProfileKeys()
 
 					table := tablewriter.NewWriter(os.Stdout)
-					table.SetHeader(append([]string{fmt.Sprintf("%s Profile Name", typeName)}, listKeys...))
+					table.SetHeader(append([]string{fmt.Sprintf("%s profile Name", typeName)}, listKeys...))
 
-					for name, p := range profiles {
-						profile := p.(map[string]interface{})
-						if ptype := profile["type"]; ptype == nil || ptype.(string) != typeName {
+					for name, profile := range profiles {
+						if profile.Info.Type == "" || profile.Info.Type != typeName {
 							continue
 						}
 
 						row := []string{name}
 						for _, key := range listKeys {
-							row = append(row, profile[strings.Replace(key, "-", "_", -1)].(string))
+							row = append(row, profile.Info.Other[strings.Replace(key, "-", "_", -1)].(string))
 						}
 						table.Append(row)
 					}
@@ -107,11 +107,11 @@ func initAuth() {
 
 	// Install auth middleware
 	Client.UseRequest(func(ctx *context.Context, h context.Handler) {
-		profile := GetProfile()
+		profile := GetActiveProfile().Info
 
-		handler := AuthHandlers[profile["type"]]
+		handler := AuthHandlers[profile.Type]
 		if handler == nil {
-			h.Error(ctx, fmt.Errorf("no handler for auth type %s", profile["type"]))
+			h.Error(ctx, fmt.Errorf("no handler for auth type %s", profile.Type))
 			return
 		}
 
@@ -144,16 +144,21 @@ func UseAuth(typeName string, handler AuthHandler) {
 
 	run := func(cmd *cobra.Command, args []string) {
 		name := strings.Replace(args[0], ".", "-", -1)
-		Creds.Set("profiles."+name+".type", typeName)
+		Creds.Profiles[name] = Profile{
+			Info:         ProfileInfo{
+				Type:  typeName,
+				Other: map[string]interface{}{},
+			},
+			TokenPayload: TokenPayload{},
+		}
 
 		for i, key := range keys {
 			// Replace periods in the name since Viper will create nested structures
 			// in the config and this isn't what we want!
-			Creds.Set("profiles."+name+"."+strings.Replace(key, "-", "_", -1), args[i+1])
+			Creds.Profiles[name].Info.Other[strings.Replace(key, "-", "_", -1)] = args[i+1]
 		}
 
-		filename := path.Join(viper.GetString("config-directory"), "credentials.toml")
-		if err := Creds.WriteConfigAs(filename); err != nil {
+		if err := Creds.Write(); err != nil {
 			panic(err)
 		}
 	}
@@ -182,123 +187,103 @@ func UseAuth(typeName string, handler AuthHandler) {
 	}
 }
 
-// CredentialsFile holds credential-related information.
-type CredentialsFile struct {
-	*viper.Viper
-	keys     []string
-	listKeys []string
+type TokenPayload struct {
+	ExpiresIn    int    `mapstructure:"expires_in"`
+	RefreshToken string `mapstructure:"refresh_token"`
+	AccessToken  string `mapstructure:"access_token"`
+	IDToken      string `mapstructure:"id_token"`
+	Scope        string `mapstructure:"scope"`
+	TokenType string `mapstructure:"token_type"`
+}
+
+func (tp TokenPayload) ExpiresAt() time.Time {
+	token, _, _ := new(jwt.Parser).ParseUnverified(tp.AccessToken, jwt.MapClaims{})
+	claims, _ := token.Claims.(jwt.MapClaims)
+	iat := claims["iat"].(int)
+	return time.Unix(int64(iat), 0)
+}
+
+func (tp TokenPayload) Issuer() string {
+	token, _, _ := new(jwt.Parser).ParseUnverified(tp.AccessToken, jwt.MapClaims{})
+	claims, _ := token.Claims.(jwt.MapClaims)
+	iss := claims["iss"].(string)
+	return iss
+}
+
+type ProfileInfo struct {
+	Type string `mapstructure:"type"`
+	Other map[string]interface{} `mapstructure:,remain`
+}
+
+func (pi ProfileInfo) GetString(k string) string {
+	value, _ := pi.Other[k]
+	s, _ := value.(string)
+	return s
+}
+
+func (pi ProfileInfo) ToMap() map[string]string {
+	m := make(map[string]string)
+	m["type"] = pi.Type
+	for k, v := range pi.Other {
+		if s, ok := v.(string); ok {
+			m[k] = s
+		}
+	}
+	return m
+}
+
+type Profile struct {
+	Info         ProfileInfo `mapstructure:"info"`
+	TokenPayload TokenPayload      `mapstructure:"token_payload"`
+}
+
+type Credentials struct {
+	viper *viper.Viper
+	Profiles map[string]Profile `mapstructure:"profiles"`
+}
+
+func (c *Credentials) Write() error {
+	c.viper.Set("profiles", c.Profiles)
+	return c.viper.WriteConfig()
+}
+
+func (c *Credentials) UpdateProfileTokenPayload(tokenType, accessToken, refreshToken string) error {
+	tokenPayload := c.Profiles[RunConfig.GetProfileName()].TokenPayload
+	tokenPayload.AccessToken = accessToken
+	tokenPayload.TokenType = tokenType
+	if refreshToken != "" {
+		tokenPayload.RefreshToken = refreshToken
+	}
+	profile := c.Profiles[RunConfig.GetProfileName()]
+	profile.TokenPayload = tokenPayload
+	c.Profiles[RunConfig.GetProfileName()] = profile
+	return c.Write()
 }
 
 // Creds represents a configuration file storing credential-related information.
 // Use this only after `InitCredentials` has been called.
-var Creds *CredentialsFile
+var Creds *Credentials
 
-// GetProfile returns the current profile's configuration.
-func GetProfile() map[string]string {
-	return Creds.GetStringMapString("profiles." + strings.Replace(viper.GetString("profile"), ".", "-", -1))
+// GetActiveProfile returns the Profile for the currently configured profile.
+func GetActiveProfile() Profile {
+	return Creds.Profiles[RunConfig.GetProfileName()]
 }
 
-// ProfileKeys lets you specify authentication profile keys to be used in
-// the credentials file.
-// This is deprecated and you should use `cli.UseAuth` instead.
-func ProfileKeys(keys ...string) func(*CredentialsFile) error {
-	return func(cf *CredentialsFile) error {
-		cf.keys = keys
-		return nil
-	}
-}
-
-// ProfileListKeys sets which keys will be shown in the table when calling
-// the `auth list-profiles` command.
-// This is deprecated and you should use `cli.UseAuth` instead.
-func ProfileListKeys(keys ...string) func(*CredentialsFile) error {
-	return func(cf *CredentialsFile) error {
-		cf.listKeys = keys
-		return nil
-	}
-}
-
-// InitCredentialsFile sets up the creds file and `profile` global parameter.
-func InitCredentialsFile() {
+// InitCredentials sets up the creds file and `profile` global parameter.
+func InitCredentials() {
 	// Setup a credentials file, kept separate from configuration which might
 	// get checked into source control.
-	Creds = &CredentialsFile{viper.New(), []string{}, []string{}}
+	credConfig := viper.New()
 
-	Creds.SetConfigName("credentials")
-	Creds.AddConfigPath("$HOME/." + viper.GetString("app-name") + "/")
-	Creds.ReadInConfig()
+	credConfig.SetConfigName("credentials")
+	credConfig.AddConfigPath("$HOME/." + viper.GetString("app-name") + "/")
+	Creds = &Credentials{}
+	credConfig.Unmarshal(Creds)
+	Creds.viper = credConfig
+	if Creds.Profiles == nil {
+		Creds.Profiles = make(map[string]Profile)
+	}
 
 	// Register a new `--profile` flag.
 	AddGlobalFlag("profile", "", "Credentials profile to use for authentication", "default")
-}
-
-// InitCredentials sets up the profile/auth commands. Must be called *after* you
-// have called `cli.Init()`.
-//
-//  // Initialize an API key
-//  cli.InitCredentials(cli.ProfileKeys("api-key"))
-// This is deprecated and you should use `cli.UseAuth` instead.
-func InitCredentials(options ...func(*CredentialsFile) error) {
-	InitCredentialsFile()
-
-	for _, option := range options {
-		option(Creds)
-	}
-
-	// Register auth management commands to create and list profiles.
-	cmd := &cobra.Command{
-		Use:   "auth",
-		Short: "Authentication settings",
-	}
-	Root.AddCommand(cmd)
-
-	use := "add-profile [flags] <name>"
-	for _, name := range Creds.keys {
-		use += " <" + strings.Replace(name, "_", "-", -1) + ">"
-	}
-
-	cmd.AddCommand(&cobra.Command{
-		Use:     use,
-		Aliases: []string{"add"},
-		Short:   "Add a new named authentication profile",
-		Args:    cobra.ExactArgs(1 + len(Creds.keys)),
-		Run: func(cmd *cobra.Command, args []string) {
-			for i, key := range Creds.keys {
-				// Replace periods in the name since Viper will create nested structures
-				// in the config and this isn't what we want!
-				name := strings.Replace(args[0], ".", "-", -1)
-				Creds.Set("profiles."+name+"."+strings.Replace(key, "-", "_", -1), args[i+1])
-			}
-
-			filename := path.Join(viper.GetString("config-directory"), "credentials.toml")
-			if err := Creds.WriteConfigAs(filename); err != nil {
-				panic(err)
-			}
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:     "list-profiles",
-		Aliases: []string{"ls"},
-		Short:   "List available configured authentication profiles",
-		Args:    cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			profiles := Creds.GetStringMap("profiles")
-			if profiles != nil {
-				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader(append([]string{"Profile Name"}, Creds.listKeys...))
-
-				for name, profile := range profiles {
-					row := []string{name}
-					for _, key := range Creds.listKeys {
-						row = append(row, profile.(map[string]interface{})[strings.Replace(key, "-", "_", -1)].(string))
-					}
-					table.Append(row)
-				}
-				table.Render()
-			} else {
-				fmt.Printf("No profiles configured. Use `%s auth add-profile` to add one.\n", Root.CommandPath())
-			}
-		},
-	})
 }

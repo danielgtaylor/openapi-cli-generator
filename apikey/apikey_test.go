@@ -3,11 +3,7 @@ package apikey
 import (
 	"testing"
 
-<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/cli"
-=======
-	"github.com/kalzoo/openapi-cli-generator/cli"
->>>>>>> replace references from danielgtaylor to kalzoo github
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,7 +23,13 @@ func TestHeaderAuth(t *testing.T) {
 		EnvPrefix: "TEST",
 	})
 	Init("x-auth", LocationHeader)
-	cli.Creds.Set("profiles.default.api_key", "test")
+	cli.Creds.Profiles["default"] = cli.Profile{
+		Info:         cli.ProfileInfo{
+			Other: map[string]interface{}{
+				"api_key": "test",
+			},
+		},
+	}
 
 	r := cli.Client.Get()
 	r.Do()
@@ -41,7 +43,13 @@ func TestQueryAuth(t *testing.T) {
 		EnvPrefix: "TEST",
 	})
 	Init("key", LocationQuery)
-	cli.Creds.Set("profiles.default.api_key", "test")
+	cli.Creds.Profiles["default"] = cli.Profile{
+		Info:         cli.ProfileInfo{
+			Other: map[string]interface{}{
+				"api_key": "test",
+			},
+		},
+	}
 
 	r := cli.Client.Get()
 	r.Do()
@@ -55,7 +63,13 @@ func TestCookieAuth(t *testing.T) {
 		EnvPrefix: "TEST",
 	})
 	Init("key", LocationCookie)
-	cli.Creds.Set("profiles.default.api_key", "test")
+	cli.Creds.Profiles["default"] = cli.Profile{
+		Info:         cli.ProfileInfo{
+			Other: map[string]interface{}{
+				"api_key": "test",
+			},
+		},
+	}
 
 	r := cli.Client.Get()
 	r.Do()

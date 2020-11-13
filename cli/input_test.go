@@ -6,11 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/cli"
-=======
-	"github.com/kalzoo/openapi-cli-generator/cli"
->>>>>>> replace references from danielgtaylor to kalzoo github
 )
 
 func deepAssign(target, source string) string {

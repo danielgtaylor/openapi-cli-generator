@@ -1,5 +1,5 @@
 // Package apikey provides authentication profile support for APIs that require
-// a pre-generated constant authenticationn key passed via a header, query
+// a pre-generated constant authentication key passed via a header, query
 // parameter, or cookie value in each request.
 package apikey
 
@@ -37,24 +37,24 @@ func (h *Handler) ProfileKeys() []string {
 
 // OnRequest gets run before the request goes out on the wire.
 func (h *Handler) OnRequest(log *zerolog.Logger, request *http.Request) error {
-	profile := cli.GetProfile()
+	profile := cli.GetActiveProfile()
 
 	switch h.In {
 	case LocationHeader:
 		if request.Header.Get(h.Name) == "" {
-			request.Header.Add(h.Name, profile[apiKey])
+			request.Header.Add(h.Name, profile.Info.GetString(apiKey))
 		}
 	case LocationQuery:
 		if request.URL.Query().Get(h.Name) == "" {
 			query := request.URL.Query()
-			query.Set(h.Name, profile[apiKey])
+			query.Set(h.Name, profile.Info.GetString(apiKey))
 			request.URL.RawQuery = query.Encode()
 		}
 	case LocationCookie:
 		if c, err := request.Cookie(h.Name); err != nil || c == nil {
 			request.AddCookie(&http.Cookie{
 				Name:  h.Name,
-				Value: profile[apiKey],
+				Value: profile.Info.GetString(apiKey),
 			})
 		}
 	}

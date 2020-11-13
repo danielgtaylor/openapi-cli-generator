@@ -63,7 +63,8 @@ func TestMain(m *testing.M) {
 
 func TestEchoSuccess(t *testing.T) {
 	// Call the precompiled executable CLI to hit our test server.
-	out, err := exec.Command("sh", "-c", "example-cli echo hello: world --echo-query=foo --x-request-id bar").CombinedOutput()
+	// Note, `echo-query` has `x-cli-name` set in OAS definition.
+	out, err := exec.Command("sh", "-c", "example-cli echo hello: world --echo-query=foo --xRequestId bar").CombinedOutput()
 	if err != nil {
 		fmt.Println(string(out))
 		panic(err)

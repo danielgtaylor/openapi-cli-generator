@@ -13,11 +13,7 @@ import (
 	"strings"
 	"text/template"
 
-<<<<<<< HEAD
 	"github.com/rigetti/openapi-cli-generator/shorthand"
-=======
-	"github.com/kalzoo/openapi-cli-generator/shorthand"
->>>>>>> replace references from danielgtaylor to kalzoo github
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
@@ -424,8 +420,8 @@ func escapeString(value string) string {
 }
 
 // Generates the "slug" string for an operation.
-func slug(operationID string) string {
-	return toCamelInitCase(operationID, false)
+func slug(s string) string {
+	return toCamelInitCase(s, false)
 }
 
 var uppercaseAcronym = map[string]string{
