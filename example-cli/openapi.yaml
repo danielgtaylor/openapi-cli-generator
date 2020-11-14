@@ -10,6 +10,8 @@ paths:
     post:
       operationId: echo
       description: Echo back body with the same content type.
+      security:
+        - JWTBearer: []
       parameters:
       - name: q
         x-cli-name: echo-query
@@ -30,3 +32,8 @@ paths:
             application/json:
               example:
                 hello: world
+components:
+  securitySchemes:
+    JWTBearer:
+      scheme: bearer
+      type: http

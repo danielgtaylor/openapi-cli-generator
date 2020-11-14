@@ -2,17 +2,20 @@ package cli
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
+	"path"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/olekukonko/tablewriter"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/h2non/gentleman.v2/context"
-	"github.com/dgrijalva/jwt-go"
 )
 
 // AuthHandler describes a handler that can be called on a request to inject
@@ -64,18 +67,15 @@ func initAuth() {
 		Args:    cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			profiles := Creds.Profiles
-
 			if profiles != nil {
 				// Use a map as a set to find the available auth type names.
-				types := make(map[string]bool)
+				authServers := make(map[string]bool)
 				for _, profile := range profiles {
-					if profile.Info.Type != "" {
-						types[profile.Info.Type] = true
-					}
+					authServers[profile.Info.Name] = true
 				}
 
 				// For each type name, draw a table with the relevant profile keys
-				for typeName := range types {
+				for typeName := range authServers {
 					handler := AuthHandlers[typeName]
 					if handler == nil {
 						continue
@@ -84,16 +84,20 @@ func initAuth() {
 					listKeys := handler.ProfileKeys()
 
 					table := tablewriter.NewWriter(os.Stdout)
-					table.SetHeader(append([]string{fmt.Sprintf("%s profile Name", typeName)}, listKeys...))
+					authName := typeName
+					if authName == "" {
+						authName = "Default"
+					}
+					table.SetHeader(append([]string{fmt.Sprintf("%s environment", typeName)}, listKeys...))
 
 					for name, profile := range profiles {
-						if profile.Info.Type == "" || profile.Info.Type != typeName {
+						if profile.Info.Name != typeName {
 							continue
 						}
 
 						row := []string{name}
 						for _, key := range listKeys {
-							row = append(row, profile.Info.Other[strings.Replace(key, "-", "_", -1)].(string))
+							row = append(row, profile.Info.GetString(strings.Replace(key, "-", "_", -1)))
 						}
 						table.Append(row)
 					}
@@ -109,9 +113,9 @@ func initAuth() {
 	Client.UseRequest(func(ctx *context.Context, h context.Handler) {
 		profile := GetActiveProfile().Info
 
-		handler := AuthHandlers[profile.Type]
+		handler := AuthHandlers[profile.Name]
 		if handler == nil {
-			h.Error(ctx, fmt.Errorf("no handler for auth type %s", profile.Type))
+			h.Error(ctx, fmt.Errorf("no handler for auth server %s", profile.Name))
 			return
 		}
 
@@ -144,21 +148,24 @@ func UseAuth(typeName string, handler AuthHandler) {
 
 	run := func(cmd *cobra.Command, args []string) {
 		name := strings.Replace(args[0], ".", "-", -1)
-		Creds.Profiles[name] = Profile{
-			Info:         ProfileInfo{
-				Type:  typeName,
-				Other: map[string]interface{}{},
-			},
-			TokenPayload: TokenPayload{},
+		profile, exists := Creds.Profiles[name]
+		if !exists {
+			profile = Profile{
+				Info: ProfileInfo{
+					Name:  typeName,
+					Other: map[string]interface{}{},
+				},
+				TokenPayload: TokenPayload{},
+			}
 		}
 
 		for i, key := range keys {
 			// Replace periods in the name since Viper will create nested structures
 			// in the config and this isn't what we want!
-			Creds.Profiles[name].Info.Other[strings.Replace(key, "-", "_", -1)] = args[i+1]
+			profile.Info.Other[strings.Replace(key, "-", "_", -1)] = args[i+1]
 		}
 
-		if err := Creds.Write(); err != nil {
+		if err := Creds.SetProfile(name, profile); err != nil {
 			panic(err)
 		}
 	}
@@ -193,13 +200,29 @@ type TokenPayload struct {
 	AccessToken  string `mapstructure:"access_token"`
 	IDToken      string `mapstructure:"id_token"`
 	Scope        string `mapstructure:"scope"`
-	TokenType string `mapstructure:"token_type"`
+	TokenType    string `mapstructure:"token_type"`
+}
+
+func (tp TokenPayload) ToMap() map[string]interface{} {
+	m := make(map[string]interface{})
+	m["expires_in"] = tp.ExpiresIn
+	m["refresh_token"] = tp.RefreshToken
+	m["access_token"] = tp.AccessToken
+	m["expires_in"] = tp.ExpiresIn
+	m["id_token"] = tp.IDToken
+	m["scope"] = tp.Scope
+	m["token_type"] = tp.TokenType
+	removeZeroValues(m)
+	return m
 }
 
 func (tp TokenPayload) ExpiresAt() time.Time {
 	token, _, _ := new(jwt.Parser).ParseUnverified(tp.AccessToken, jwt.MapClaims{})
+	if token == nil {
+		return time.Time{}
+	}
 	claims, _ := token.Claims.(jwt.MapClaims)
-	iat := claims["iat"].(int)
+	iat, _ := claims["iat"].(int)
 	return time.Unix(int64(iat), 0)
 }
 
@@ -211,7 +234,7 @@ func (tp TokenPayload) Issuer() string {
 }
 
 type ProfileInfo struct {
-	Type string `mapstructure:"type"`
+	Name  string                 `mapstructure:"name"`
 	Other map[string]interface{} `mapstructure:,remain`
 }
 
@@ -223,7 +246,7 @@ func (pi ProfileInfo) GetString(k string) string {
 
 func (pi ProfileInfo) ToMap() map[string]string {
 	m := make(map[string]string)
-	m["type"] = pi.Type
+	m["name"] = pi.Name
 	for k, v := range pi.Other {
 		if s, ok := v.(string); ok {
 			m[k] = s
@@ -233,18 +256,44 @@ func (pi ProfileInfo) ToMap() map[string]string {
 }
 
 type Profile struct {
-	Info         ProfileInfo `mapstructure:"info"`
-	TokenPayload TokenPayload      `mapstructure:"token_payload"`
+	Info         ProfileInfo  `mapstructure:"info"`
+	TokenPayload TokenPayload `mapstructure:"token_payload"`
+}
+
+func (p *Profile) ToMap() map[string]interface{} {
+	m := make(map[string]interface{})
+	m["info"] = p.Info.ToMap()
+	m["token_payload"] = p.TokenPayload.ToMap()
+	return m
 }
 
 type Credentials struct {
-	viper *viper.Viper
+	viper    *viper.Viper
 	Profiles map[string]Profile `mapstructure:"profiles"`
 }
 
+func (c *Credentials) ToMap() map[string]interface{} {
+	m := make(map[string]interface{})
+	m["profiles"] = []map[string]interface{}{}
+	for profileName, profile := range c.Profiles {
+		m[profileName] = profile.ToMap()
+	}
+	return m
+}
+
 func (c *Credentials) Write() error {
-	c.viper.Set("profiles", c.Profiles)
+	c.viper.Set("profiles", c.ToMap())
 	return c.viper.WriteConfig()
+}
+
+func (c *Credentials) SetProfile(name string, profile Profile) error {
+	c.Profiles[name] = profile
+	err := c.Write()
+	if err != nil {
+		return err
+	}
+	c.viper.ReadInConfig()
+	return nil
 }
 
 func (c *Credentials) UpdateProfileTokenPayload(tokenType, accessToken, refreshToken string) error {
@@ -256,8 +305,7 @@ func (c *Credentials) UpdateProfileTokenPayload(tokenType, accessToken, refreshT
 	}
 	profile := c.Profiles[RunConfig.GetProfileName()]
 	profile.TokenPayload = tokenPayload
-	c.Profiles[RunConfig.GetProfileName()] = profile
-	return c.Write()
+	return c.SetProfile(RunConfig.GetProfileName(), profile)
 }
 
 // Creds represents a configuration file storing credential-related information.
@@ -274,11 +322,27 @@ func InitCredentials() {
 	// Setup a credentials file, kept separate from configuration which might
 	// get checked into source control.
 	credConfig := viper.New()
-
+	touchFile(
+		path.Join(
+			os.Getenv("HOME"),
+			fmt.Sprintf(".%s", viper.GetString("app-name")),
+			"credentials.toml"))
+	credConfig.SetConfigType("toml")
 	credConfig.SetConfigName("credentials")
-	credConfig.AddConfigPath("$HOME/." + viper.GetString("app-name") + "/")
-	Creds = &Credentials{}
-	credConfig.Unmarshal(Creds)
+	credConfig.AddConfigPath(
+		path.Join(
+			os.Getenv("HOME"),
+			fmt.Sprintf(".%s", viper.GetString("app-name"))))
+	c := Credentials{}
+	err := credConfig.ReadInConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = credConfig.Unmarshal(&c)
+	if err != nil {
+		log.Fatal(err)
+	}
+	Creds = &c
 	Creds.viper = credConfig
 	if Creds.Profiles == nil {
 		Creds.Profiles = make(map[string]Profile)
@@ -286,4 +350,24 @@ func InitCredentials() {
 
 	// Register a new `--profile` flag.
 	AddGlobalFlag("profile", "", "Credentials profile to use for authentication", "default")
+}
+
+func touchFile(fileName string) error {
+	_, err := os.Stat(fileName)
+	if os.IsNotExist(err) {
+		file, err := os.Create(fileName)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+	}
+	return nil
+}
+
+func removeZeroValues(m map[string]interface{}) {
+	for k, v := range m {
+		if v == reflect.Zero(reflect.TypeOf(v)).Interface() {
+			delete(m, k)
+		}
+	}
 }

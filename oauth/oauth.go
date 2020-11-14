@@ -100,11 +100,6 @@ func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.
 		if err != nil {
 			return err
 		}
-
-		// Save the cache to disk.
-		if err := cli.Creds.Write(); err != nil {
-			return err
-		}
 	}
 
 	// Set the auth header so the request can be made.

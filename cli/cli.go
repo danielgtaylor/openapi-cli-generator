@@ -180,10 +180,12 @@ func initConfig(appName, envPrefix string) {
 		panic(err)
 	}
 
-	// Load configuration from file(s) if provided.
+	touchFile(path.Join(configDir, "config.toml"))
+	// Load configuration from file(s) if provided.cd
+	viper.SetConfigType("toml")
 	viper.SetConfigName("config")
 	viper.AddConfigPath("/etc/" + appName + "/")
-	viper.AddConfigPath("$HOME/." + appName + "/")
+	viper.AddConfigPath(configDir)
 
 	// Load configuration from the environment if provided. Flags below get
 	// transformed automatically, e.g. `client-id` -> `PREFIX_CLIENT_ID`.
