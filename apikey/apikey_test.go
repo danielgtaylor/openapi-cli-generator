@@ -1,6 +1,7 @@
 package apikey
 
 import (
+	"github.com/spf13/viper"
 	"testing"
 
 	"github.com/rigetti/openapi-cli-generator/cli"
@@ -23,6 +24,7 @@ func TestHeaderAuth(t *testing.T) {
 		EnvPrefix: "TEST",
 	})
 	Init("x-auth", LocationHeader)
+	viper.Set("profile_name", "default")
 	cli.Creds.Profiles["default"] = cli.Profile{
 		Info:         cli.ProfileInfo{
 			Other: map[string]interface{}{
@@ -42,6 +44,7 @@ func TestQueryAuth(t *testing.T) {
 		AppName:   "test",
 		EnvPrefix: "TEST",
 	})
+	viper.Set("profile_name", "default")
 	Init("key", LocationQuery)
 	cli.Creds.Profiles["default"] = cli.Profile{
 		Info:         cli.ProfileInfo{

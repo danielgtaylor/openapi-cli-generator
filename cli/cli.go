@@ -149,19 +149,25 @@ type AuthServer struct {
 }
 
 type runConfig struct {
-	profile     string       `mapstructure:"profile"`
+	profileName string       `mapstructure:"profile_name"`
 	server      string       `mapstructure:"server"`
 	AuthServers []AuthServer `mapstructure:"auth_servers"`
 }
 
+// GetProfileName will first check to see if profileName has been set, by
+// an upstream flag perhaps, and back off to its internal value set
+// when originally unmarshalled in initConfig.
 func (rc runConfig) GetProfileName() string {
-	p := viper.GetString("profile")
+	p := viper.GetString("profile_name")
 	if p == "" {
-		p = rc.profile
+		p = rc.profileName
 	}
 	return p
 }
 
+// GetServerName will first check to see if server has been set, by
+// an upstream flag perhaps, and back off to its internal value set
+// when originally unmarshalled in initConfig.
 func (rc runConfig) GetServerName() string {
 	s := viper.GetString("server")
 	if s == "" {
@@ -172,7 +178,7 @@ func (rc runConfig) GetServerName() string {
 
 var RunConfig runConfig
 
-func initConfig(appName, envPrefix string) {
+func initConfig(appName, envPrefix string) error {
 	// One-time setup to ensure the path exists so we can write files into it
 	// later as needed.
 	configDir := path.Join(userHomeDir(), "."+appName)
@@ -198,7 +204,7 @@ func initConfig(appName, envPrefix string) {
 	viper.Set("config-directory", configDir)
 	viper.SetDefault("server-index", 0)
 
-	viper.Unmarshal(&RunConfig)
+	return viper.Unmarshal(&RunConfig)
 }
 
 func showHelpConfig(cmd *cobra.Command, args []string) {
@@ -234,7 +240,7 @@ Configuration files can be used to configure the CLI and can be written using JS
 
 Some configuration values are not exposed as command options but can be set via prefixed environment variables or in configuration files. They are documented here.
 
-Name      | Type   | Description
+AuthServerName      | Type   | Description
 --------- | ------ | -----------
 ¬color¬   | ¬bool¬ | Force colorized output.
 ¬nocolor¬ | ¬bool¬ | Disable colorized output.
@@ -246,7 +252,7 @@ Name      | Type   | Description
 	help = strings.Replace(help, "$config-dir", viper.GetString("config-directory"), -1)
 
 	flags := make([]string, 0)
-	flags = append(flags, "Name            | Type     | Description")
+	flags = append(flags, "AuthServerName            | Type     | Description")
 	flags = append(flags, "--------------- | -------- | -----------")
 	Root.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 		flags = append(flags, fmt.Sprintf("%-15s", "`"+f.Name+"`")+" | `"+fmt.Sprintf("%-7s", f.Value.Type()+"`")+" | "+f.Usage)

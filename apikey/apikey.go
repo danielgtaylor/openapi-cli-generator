@@ -38,7 +38,6 @@ func (h *Handler) ProfileKeys() []string {
 // OnRequest gets run before the request goes out on the wire.
 func (h *Handler) OnRequest(log *zerolog.Logger, request *http.Request) error {
 	profile := cli.GetActiveProfile()
-
 	switch h.In {
 	case LocationHeader:
 		if request.Header.Get(h.Name) == "" {

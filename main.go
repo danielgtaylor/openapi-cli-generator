@@ -644,7 +644,7 @@ func initCmd(cmd *cobra.Command, args []string) {
 	}
 
 	templateData := map[string]string{
-		"Name":    args[0],
+		"AuthServerName":    args[0],
 		"NameEnv": strings.Replace(strings.ToUpper(args[0]), "-", "_", -1),
 	}
 
