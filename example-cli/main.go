@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/kalzoo/openapi-cli-generator/cli"
 )
 
 //go:generate openapi-cli-generator generate openapi.yaml

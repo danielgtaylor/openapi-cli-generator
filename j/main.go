@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/danielgtaylor/openapi-cli-generator/shorthand"
+	"github.com/kalzoo/openapi-cli-generator/shorthand"
 	toml "github.com/pelletier/go-toml"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"

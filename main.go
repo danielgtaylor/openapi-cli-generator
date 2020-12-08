@@ -13,7 +13,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/danielgtaylor/openapi-cli-generator/shorthand"
+	"github.com/kalzoo/openapi-cli-generator/shorthand"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
