@@ -4,3 +4,4 @@ vendor
 .idea
 test
 example-cli/main.go-e
+tmp/
