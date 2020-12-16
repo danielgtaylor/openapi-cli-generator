@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/rigetti/openapi-cli-generator/cli"
 )
 
 func deepAssign(target, source string) string {

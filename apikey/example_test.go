@@ -3,7 +3,7 @@ package apikey
 import (
 	"fmt"
 
-	"github.com/danielgtaylor/openapi-cli-generator/cli"
+	"github.com/rigetti/openapi-cli-generator/cli"
 )
 
 func Example() {
