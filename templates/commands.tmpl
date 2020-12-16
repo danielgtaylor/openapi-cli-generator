@@ -38,6 +38,11 @@ import (
 	if cmd.Flags().HasFlags() {
 		params.BindPFlags(cmd.Flags())
 	}
+
+	for _, globalFlag := range globalFlags {
+	    cmd.Flags().AddFlag(globalFlag.Flag)
+	}
+
 {{ end }}
 
 {{ $name := .Name }}
@@ -65,10 +70,7 @@ func {{ $api }}Servers() []map[string]string {
 			handlerPath = "{{ $name }} " + handlerPath
 		}
 
-		server := cli.RunConfig.GetServerName()
-		if server == "" {
-			server = {{ $api }}Servers()[viper.GetInt("server-index")]["url"]
-		}
+		server := cli.RunConfig.GetProfile().ApiURL
 
 		url := server+"{{ .Path }}"
 
@@ -173,7 +175,7 @@ func {{ $api }}Servers() []map[string]string {
 	}
 {{ end }}
 
-func {{ $api }}Register(subcommand bool) {
+func {{ $api }}Register(subcommand bool, globalFlags []cli.GlobalFlag) {
 	root := cli.Root
 
 	if subcommand {

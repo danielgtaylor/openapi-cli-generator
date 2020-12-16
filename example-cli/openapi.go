@@ -33,10 +33,7 @@ func OpenapiEcho(params *viper.Viper, body string) (*gentleman.Response, map[str
 		handlerPath = "openapi " + handlerPath
 	}
 
-	server := cli.RunConfig.GetServerName()
-	if server == "" {
-		server = openapiServers()[viper.GetInt("server-index")]["url"]
-	}
+	server := cli.RunConfig.GetProfile().ApiURL
 
 	url := server + "/echo"
 
@@ -80,7 +77,7 @@ func OpenapiEcho(params *viper.Viper, body string) (*gentleman.Response, map[str
 	return resp, decoded, nil
 }
 
-func openapiRegister(subcommand bool) {
+func openapiRegister(subcommand bool, globalFlags []cli.GlobalFlag) {
 	root := cli.Root
 
 	if subcommand {
@@ -134,6 +131,10 @@ func openapiRegister(subcommand bool) {
 
 		if cmd.Flags().HasFlags() {
 			params.BindPFlags(cmd.Flags())
+		}
+
+		for _, globalFlag := range globalFlags {
+			cmd.Flags().AddFlag(globalFlag.Flag)
 		}
 
 	}()

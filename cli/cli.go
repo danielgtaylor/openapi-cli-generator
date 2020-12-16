@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	colorable "github.com/mattn/go-colorable"
 	isatty "github.com/mattn/go-isatty"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -51,9 +49,6 @@ type Config struct {
 
 // Init will set up the CLI.
 func Init(config *Config) {
-	initConfig(config.AppName, config.EnvPrefix)
-	authInitialized = false
-
 	// Determine if we are using a TTY or colored output is forced-on.
 	tty = false
 	if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) || viper.GetBool("color") {
@@ -71,7 +66,6 @@ func Init(config *Config) {
 		Stderr = colorable.NewColorableStderr()
 	}
 
-	zerolog.SetGlobalLevel(zerolog.WarnLevel)
 	log.Logger = log.Output(ConsoleWriter{Out: Stderr, NoColor: !tty}).With().Caller().Logger()
 
 	Client = gentleman.New()
@@ -84,21 +78,6 @@ func Init(config *Config) {
 		Use:     filepath.Base(os.Args[0]),
 		Version: config.Version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if viper.GetBool("verbose") {
-				zerolog.SetGlobalLevel(zerolog.DebugLevel)
-
-				settings := viper.AllSettings()
-
-				// Hide any secret values
-				for k := range settings {
-					if strings.Contains(k, "secret") || strings.Contains(k, "password") {
-						settings[k] = "**HIDDEN**"
-					}
-				}
-
-				log.Info().Fields(settings).Msg("Configuration")
-			}
-
 			if PreRun != nil {
 				if err := PreRun(cmd, args); err != nil {
 					return err
@@ -123,11 +102,6 @@ func Init(config *Config) {
 		Run:   showHelpInput,
 	})
 
-	AddGlobalFlag("verbose", "", "Enable verbose log output", false)
-	AddGlobalFlag("output-format", "o", "Output format [json, yaml]", "json")
-	AddGlobalFlag("query", "q", "Filter / project results using JMESPath", "")
-	AddGlobalFlag("raw", "", "Output result of query as raw rather than an escaped JSON string or list", false)
-	AddGlobalFlag("server", "", "Override server URL", "")
 }
 
 func userHomeDir() string {
@@ -141,80 +115,17 @@ func userHomeDir() string {
 	return os.Getenv("HOME")
 }
 
-type AuthServer struct {
-	ClientID string   `mapstructure:"client_id"`
-	Issuer   string   `mapstructure:"issuer"`
-	Keys     []string `mapstructure:"keys"`
-	ListKeys []string `mapstructure:"list_keys"`
-}
+var RunConfig ClientConfiguration
 
-type runConfig struct {
-	profileName string       `mapstructure:"profile_name"`
-	server      string       `mapstructure:"server"`
-	AuthServers []AuthServer `mapstructure:"auth_servers"`
-}
-
-// GetProfileName will first check to see if profileName has been set, by
-// an upstream flag perhaps, and back off to its internal value set
-// when originally unmarshalled in initConfig.
-func (rc runConfig) GetProfileName() string {
-	p := viper.GetString("profile_name")
-	if p == "" {
-		p = rc.profileName
-	}
-	return p
-}
-
-// GetServerName will first check to see if server has been set, by
-// an upstream flag perhaps, and back off to its internal value set
-// when originally unmarshalled in initConfig.
-func (rc runConfig) GetServerName() string {
-	s := viper.GetString("server")
-	if s == "" {
-		s = rc.server
-	}
-	return s
-}
-
-var RunConfig runConfig
-
-func initConfig(appName, envPrefix string) error {
-	// One-time setup to ensure the path exists so we can write files into it
-	// later as needed.
-	configDir := path.Join(userHomeDir(), "."+appName)
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		panic(err)
-	}
-
-	touchFile(path.Join(configDir, "config.toml"))
-	// Load configuration from file(s) if provided.cd
-	viper.SetConfigType("toml")
-	viper.SetConfigName("config")
-	viper.AddConfigPath("/etc/" + appName + "/")
-	viper.AddConfigPath(configDir)
-
-	// Load configuration from the environment if provided. Flags below get
-	// transformed automatically, e.g. `client-id` -> `PREFIX_CLIENT_ID`.
-	viper.SetEnvPrefix(envPrefix)
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	viper.AutomaticEnv()
-
-	// Save a few things that will be useful elsewhere.
-	viper.Set("app-name", appName)
-	viper.Set("config-directory", configDir)
-	viper.SetDefault("server-index", 0)
-
-	return viper.Unmarshal(&RunConfig)
-}
 
 func showHelpConfig(cmd *cobra.Command, args []string) {
-	help := `# CLI Configuration
+	help := `# CLI ClientConfiguration
 
-Configuration for the CLI comes from the following places:
+ClientConfiguration for the CLI comes from the following places:
 
 1. Command options
 2. Environment variables
-3. Configuration files
+3. ClientConfiguration files
 
 ## Global Command Options
 
@@ -226,9 +137,9 @@ $flags
 
 Environment variables must be capitalized, prefixed with ¬$APP¬, and words are separated by an underscore rather than a dash. For example, setting ¬$APP_VERBOSE=1¬ is equivalent to passing ¬--verbose¬ to the command.
 
-## Configuration Files
+## ClientConfiguration Files
 
-Configuration files can be used to configure the CLI and can be written using JSON, YAML, or TOML. The CLI searches in your home directory first (e.g. ¬$config-dir/config.json¬) and on Mac/Linux also looks in e.g. ¬/etc/$app/config.json¬. The following is equivalent to passing ¬--verbose¬ to the command:
+ClientConfiguration files can be used to configure the CLI and can be written using JSON, YAML, or TOML. The CLI searches in your home directory first (e.g. ¬$config-dir/config.json¬) and on Mac/Linux also looks in e.g. ¬/etc/$app/config.json¬. The following is equivalent to passing ¬--verbose¬ to the command:
 
 ¬¬¬json
 {

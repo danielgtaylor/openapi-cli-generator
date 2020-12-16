@@ -12,6 +12,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jteeuwen/go-bindata v3.0.7+incompatible // indirect
+	github.com/magiconair/properties v1.8.0
 	github.com/mattn/go-colorable v0.0.9
 	github.com/mattn/go-isatty v0.0.4
 	github.com/mattn/go-runewidth v0.0.9 // indirect
@@ -20,6 +21,7 @@ require (
 	github.com/pelletier/go-toml v1.2.0
 	github.com/pkg/errors v0.8.1
 	github.com/rs/zerolog v1.11.0
+	github.com/spf13/cast v1.2.0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.2.1

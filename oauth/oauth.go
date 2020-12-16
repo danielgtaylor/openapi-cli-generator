@@ -9,7 +9,6 @@ import (
 
 	"github.com/rigetti/openapi-cli-generator/cli"
 	"github.com/rs/zerolog"
-	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 	"gopkg.in/h2non/gentleman.v2/context"
 )
@@ -54,7 +53,7 @@ func Scopes(scopes ...string) func(*config) error {
 func TokenMiddleware(source oauth2.TokenSource, ctx *context.Context, h context.Handler) {
 	// Setup logger with the current profile.
 	log := ctx.Get("log").(*zerolog.Logger).
-		With().Str("profile", viper.GetString("profile")).Logger()
+		With().Str("profileName", cli.RunConfig.Settings.DefaultProfileName).Logger()
 
 	if err := TokenHandler(source, &log, ctx.Request); err != nil {
 		h.Error(ctx, err)
@@ -62,20 +61,17 @@ func TokenMiddleware(source oauth2.TokenSource, ctx *context.Context, h context.
 	}
 }
 
-// TokenHandler takes a token source, gets a token, and modifies a request to
-// add the token auth as a header. Uses the CLI cache to store tokens on a per-
-// profile basis between runs.
-func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.Request) error {
+func getOauth2Token(source oauth2.TokenSource, log *zerolog.Logger) (token *oauth2.Token, err error) {
 	var cached *oauth2.Token
 
-	profile := cli.GetActiveProfile()
-	expiry := profile.TokenPayload.ExpiresAt()
+	credentials := cli.RunConfig.GetCredentials()
+	expiry := credentials.TokenPayload.ExpiresAt()
 	if !expiry.IsZero() {
 		log.Debug().Msg("Loading token from cache.")
 		cached = &oauth2.Token{
-			AccessToken:  profile.TokenPayload.AccessToken,
-			RefreshToken: profile.TokenPayload.RefreshToken,
-			TokenType:    profile.TokenPayload.TokenType,
+			AccessToken:  credentials.TokenPayload.AccessToken,
+			RefreshToken: credentials.TokenPayload.RefreshToken,
+			TokenType:    credentials.TokenPayload.TokenType,
 			Expiry:       expiry,
 		}
 	}
@@ -86,9 +82,9 @@ func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.
 	}
 
 	// Get the next available token from the source.
-	token, err := source.Token()
+	token, err = source.Token()
 	if err != nil {
-		return err
+		return
 	}
 
 	if cached == nil || (token.AccessToken != cached.AccessToken) {
@@ -96,10 +92,21 @@ func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.
 		// the new values to the CLI cache.
 		log.Debug().Msg("Token refreshed. Updating cache.")
 
-		err = cli.Creds.UpdateProfileTokenPayload(token.Type(), token.AccessToken, token.RefreshToken)
+		err = cli.RunConfig.UpdateCredentialsToken(cli.RunConfig.GetProfile().CredentialsName, token)
 		if err != nil {
-			return err
+			return
 		}
+	}
+	return
+}
+
+// TokenHandler takes a token source, gets a token, and modifies a request to
+// add the token auth as a header. Uses the CLI cache to store tokens on a per-
+// profile basis between runs.
+func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.Request) error {
+	token, err := getOauth2Token(source, log)
+	if err != nil {
+		return err
 	}
 
 	// Set the auth header so the request can be made.
