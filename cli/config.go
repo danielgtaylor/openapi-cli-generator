@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/rigetti/openapi-cli-generator/oauth"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cast"
@@ -108,6 +109,7 @@ type AuthServer struct {
 	Issuer   string   `mapstructure:"issuer"`
 	Keys     []string `mapstructure:"keys"`
 	ListKeys []string `mapstructure:"list_keys"`
+	Scopes []string `mapstructure:"scopes"`
 }
 
 type Applications struct {
@@ -260,6 +262,22 @@ func LoadConfiguration(envPrefix, settingsFilePath, secretsFilePath string, glob
 		return
 	}
 	config.ProfileName = config.Settings.DefaultProfileName
+
+	for authServerName, authServer := range config.Settings.AuthServers {
+		scopes := authServer.Scopes
+		if scopes == nil {
+			scopes = []string{"openid", "profile", "email", "offline_access"}
+		}
+		UseAuth(authServerName, &oauth.AuthCodeHandler{
+			ClientID:     authServer.ClientID,
+			AuthorizeURL: authServer.Issuer + "/v1/authorize",
+			TokenURL:     authServer.Issuer + "/v1/token",
+			Keys:         authServer.Keys,
+			Params:       []string{},
+			Scopes:       scopes,
+		})
+	}
+
 	return
 }
 

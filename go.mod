@@ -12,11 +12,11 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jteeuwen/go-bindata v3.0.7+incompatible // indirect
-	github.com/magiconair/properties v1.8.0
+	github.com/magiconair/properties v1.8.0 // indirect
 	github.com/mattn/go-colorable v0.0.9
 	github.com/mattn/go-isatty v0.0.4
 	github.com/mattn/go-runewidth v0.0.9 // indirect
-	github.com/mitchellh/mapstructure v1.0.0
+	github.com/mitchellh/mapstructure v1.0.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.0-20180912035003-be2c049b30cc
 	github.com/pelletier/go-toml v1.2.0
 	github.com/pkg/errors v0.8.1
