@@ -1,4 +1,4 @@
-module github.com/kalzoo/openapi-cli-generator
+module github.com/rigetti/openapi-cli-generator
 
 go 1.12
 

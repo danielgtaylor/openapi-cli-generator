@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/kalzoo/openapi-cli-generator/cli"
+	"github.com/rigetti/openapi-cli-generator/cli"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"

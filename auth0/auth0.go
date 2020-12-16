@@ -1,8 +1,8 @@
 package auth0
 
 import (
-	"github.com/kalzoo/openapi-cli-generator/cli"
-	"github.com/kalzoo/openapi-cli-generator/oauth"
+	"github.com/rigetti/openapi-cli-generator/cli"
+	"github.com/rigetti/openapi-cli-generator/oauth"
 )
 
 type config struct {

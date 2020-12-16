@@ -283,7 +283,7 @@ Both objects and arrays can use backreferences. An object backref starts with a 
 
 Use an ¬@¬ to load the contents of a file as the value, like ¬key: @filename¬. Use the ¬~¬ modifier to disable this behavior: ¬key:~ @user¬. By default structured data is loaded when recognized. Use the ¬~¬ filename modifier to force a string: ¬key: @~filename¬. Use the ¬%¬ modifier to load as base-64 data: ¬key: @%filename¬.
 
-See https://github.com/kalzoo/openapi-cli-generator/tree/master/shorthand#readme for more info.`
+See https://github.com/rigetti/openapi-cli-generator/tree/master/shorthand#readme for more info.`
 
 	fmt.Fprintln(Stdout, Markdown(strings.Replace(help, "¬", "`", -1)))
 }
