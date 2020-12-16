@@ -399,7 +399,7 @@ func getValueOfTagField(t interface{}, tag string) (parsed interface{}, err erro
 			continue
 		}
 		firstTagValue := strings.Split(val, ",")[0]
-		if firstTagValue == ToSnakeCase(tag) {
+		if firstTagValue == toSnakeCase(tag) {
 			return interfaceValue.Field(i).Interface(), nil
 		}
 	}

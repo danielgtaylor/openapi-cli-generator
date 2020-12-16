@@ -43,7 +43,7 @@ func OpenapiEcho(params *viper.Viper, body string) (*gentleman.Response, map[str
 	if paramEchoQuery != "" {
 		req = req.AddQuery("q", fmt.Sprintf("%v", paramEchoQuery))
 	}
-	paramXRequestId := params.GetString("xRequestId")
+	paramXRequestId := params.GetString("x-request-id")
 	if paramXRequestId != "" {
 		req = req.AddHeader("x-request-id", fmt.Sprintf("%v", paramXRequestId))
 	}
@@ -125,7 +125,7 @@ func openapiRegister(subcommand bool, globalFlags []cli.GlobalFlag) {
 		root.AddCommand(cmd)
 
 		cmd.Flags().String("echo-query", "", "")
-		cmd.Flags().String("xRequestId", "", "")
+		cmd.Flags().String("x-request-id", "", "")
 
 		cli.SetCustomFlags(cmd)
 

@@ -54,7 +54,7 @@ func initAuthAddServersCommand() *cobra.Command {
 	var clientID string
 	var issuer string
 	cmd := &cobra.Command{
-		Use:   "addServer",
+		Use:   "add-server",
 		Short: "Add a new authentication server",
 		Args:  cobra.ExactArgs(1),
 		Run:  func(cmd *cobra.Command, args []string) {
@@ -75,7 +75,7 @@ func initAuthAddServersCommand() *cobra.Command {
 			}
 		},
 	}
-	cmd.Flags().StringVar(&clientID, "clientId", "", "")
+	cmd.Flags().StringVar(&clientID, "client-id", "", "")
 	cmd.Flags().StringVar(&issuer, "issuer", "", "")
 
 	/*
@@ -92,7 +92,7 @@ func initAuthAddCredentialsCommand() *cobra.Command {
 	var authServerName string
 
 	cmd := &cobra.Command{
-		Use:   "addCredentials",
+		Use:   "add-credentials",
 		Short: "Add a new set of credentials",
 		Args:  cobra.ExactArgs(1),
 		Run:  func(cmd *cobra.Command, args []string) {
@@ -115,7 +115,7 @@ func initAuthAddCredentialsCommand() *cobra.Command {
 			}
 		},
 	}
-	cmd.Flags().StringVar(&authServerName, "authServerName", "", "")
+	cmd.Flags().StringVar(&authServerName, "auth-server-name", "", "")
 
 	/*
 	SetCustomFlags(cmd)
@@ -129,7 +129,7 @@ func initAuthAddCredentialsCommand() *cobra.Command {
 
 func initAuthListCredentialsCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "listCredentials",
+		Use:     "list-credentials",
 		Short:   "List available credentials",
 		Args:    cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -152,7 +152,7 @@ func initAuthListCredentialsCommand() *cobra.Command {
 
 func initAuthListServersCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "listServers",
+		Use:     "list-servers",
 		Short:   "List available authentication servers",
 		Args:    cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {

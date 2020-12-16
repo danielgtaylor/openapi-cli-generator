@@ -11,7 +11,7 @@ import (
 
 func getBindPathsFromProfile(flagName string, args ...interface{}) (paths []string, err error) {
 	if len(args) != 1 {
-		err = fmt.Errorf("received unexpected arguments (%d) for flag %q", len(args), ToSnakeCase(flagName))
+		err = fmt.Errorf("received unexpected arguments (%d) for flag %q", len(args), toKebabCase(flagName))
 		return
 	}
 	settings, ok := args[0].(Settings)
@@ -21,7 +21,7 @@ func getBindPathsFromProfile(flagName string, args ...interface{}) (paths []stri
 	}
 	paths = make([]string, 0)
 	for profileName := range settings.Profiles {
-		paths = append(paths, fmt.Sprintf("profiles.%s.%s", profileName, ToSnakeCase(flagName)))
+		paths = append(paths, fmt.Sprintf("profiles.%s.%s", profileName, toSnakeCase(flagName)))
 	}
 	return
 }
@@ -33,7 +33,7 @@ type GlobalFlag struct {
 }
 
 var viperBindPaths = map[string]string{
-	"profileName": "default_profile_name",
+	"profile-name": "default_profile_name",
 }
 
 func MakeAndParseGlobalFlags() (globalFlags []GlobalFlag, err error) {
@@ -42,11 +42,11 @@ func MakeAndParseGlobalFlags() (globalFlags []GlobalFlag, err error) {
 		UnknownFlags: true,
 	}
 
-	flagSet.String("profileName", "default", "")
-	flagSet.String("authServerName", "default", "")
-	flagSet.String("credentialsName", "default", "")
-	flagSet.String("apiUrl", "https://http", "")
-	flagSet.StringP("outputFormat", "o", "json", "Output format [json, yaml]")
+	flagSet.String("profile-name", "default", "")
+	flagSet.String("auth-server-name", "default", "")
+	flagSet.String("credentials-name", "default", "")
+	flagSet.String("api-url", "https://http", "")
+	flagSet.StringP("output-format", "o", "json", "Output format [json, yaml]")
 	flagSet.BoolP("help", "h", false, "")
 	flagSet.Bool("raw", false, "Output result of query as raw rather than an escaped JSON string or list")
 	err = flagSet.Parse(os.Args[1:])
@@ -57,27 +57,29 @@ func MakeAndParseGlobalFlags() (globalFlags []GlobalFlag, err error) {
 	globalFlags = []GlobalFlag{
 		{
 			UseDefault: true,
-			Flag:       flagSet.Lookup("profileName"),
+			Flag:       flagSet.Lookup("profile-name"),
 		}, {
 			UseDefault:         true,
 			customGetBindPaths: getBindPathsFromProfile,
-			Flag:               flagSet.Lookup("authServerName"),
+			Flag:               flagSet.Lookup("auth-server-name"),
 		}, {
 			UseDefault:         true,
 			customGetBindPaths: getBindPathsFromProfile,
-			Flag:               flagSet.Lookup("credentialsName"),
+			Flag:               flagSet.Lookup("credentials-name"),
 		}, {
 			UseDefault:         true,
 			customGetBindPaths: getBindPathsFromProfile,
-			Flag:               flagSet.Lookup("apiUrl"),
+			Flag:               flagSet.Lookup("api-url"),
 		}, {
 			UseDefault: true,
 			customGetBindPaths: func(flagName string, args ...interface{}) ([]string, error) {
 				return getBindPathsFromProfile("applications.cli.output_format", args...)
 			},
-			Flag: flagSet.Lookup("outputFormat"),
+			Flag: flagSet.Lookup("output-format"),
 		},
 		/*{
+			TODO: Add this back - it should be globablly available as a flag but shouldn't read
+			from configuration.
 			customGetBindPaths: func(flagName string, args ...interface{}) ([]string, error) {
 				return getBindPathsFromProfile("applications.cli.query", args...)
 			},
@@ -106,7 +108,7 @@ func (gf GlobalFlag) getBindPaths(args ...interface{}) (paths []string, err erro
 		paths = append(paths, viperBindPath)
 		return
 	}
-	paths = append(paths, ToSnakeCase(gf.Flag.Name))
+	paths = append(paths, toSnakeCase(gf.Flag.Name))
 	return
 }
 
@@ -135,11 +137,21 @@ func (gf GlobalFlag) bindFlagTo(v *viper.Viper, viperBindPath string) error {
 	return nil
 }
 
-var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchFirstCap = regexp.MustCompile("([A-Z])([A-Z][a-z])")
 var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
 
-func ToSnakeCase(str string) string {
-	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
-	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
-	return strings.ToLower(snake)
+func toKebabCase(str string) string {
+	kebab := matchFirstCap.ReplaceAllString(str, "${1}-${2}")
+	kebab = matchAllCap.ReplaceAllString(kebab, "${1}-${2}")
+	kebab = strings.ReplaceAll(kebab, "_", "-")
+	return strings.ToLower(kebab)
 }
+
+// From https://gist.github.com/stoewer/fbe273b711e6a06315d19552dd4d33e6#gistcomment-3515624
+func toSnakeCase(str string) string {
+	output := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
+	output = matchAllCap.ReplaceAllString(output, "${1}_${2}")
+	output = strings.ReplaceAll(output, "-", "_")
+	return strings.ToLower(output)
+}
+

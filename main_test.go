@@ -66,7 +66,7 @@ func TestEchoSuccess(t *testing.T) {
 	// Call the precompiled executable CLI to hit our test server.
 	// Note, `echo-query` has `x-cli-name` set in OAS definition.
 
-	out, err := exec.Command("sh", "-c", "example-cli echo hello: world --apiUrl http://127.0.0.1:8005 --echo-query=foo --xRequestId bar").CombinedOutput()
+	out, err := exec.Command("sh", "-c", "example-cli echo hello: world --api-url http://127.0.0.1:8005 --echo-query=foo --x-request-id bar").CombinedOutput()
 	if err != nil {
 		fmt.Println(string(out))
 		panic(err)
@@ -100,13 +100,13 @@ func TestAuth(t *testing.T) {
 	t.Run("can add and list auth servers", func(t *testing.T) {
 		var out []byte
 		var err error
-		out, err = exec.Command("sh", "-c", "example-cli auth addServer auth1 --issuer https://auth.test.sh --clientId 01").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli auth add-server auth1 --issuer https://auth.test.sh --client-id 01").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
 		}
 
-		out, err = exec.Command("sh", "-c", "example-cli auth listServers").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli auth list-servers").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
@@ -118,12 +118,11 @@ func TestAuth(t *testing.T) {
 func TestGlobalFlags(t *testing.T) {
 	t.Run("", func(t *testing.T) {
 		out, _ := exec.Command("sh", "-c", "example-cli echo --help").CombinedOutput()
-		fmt.Println(string(out))
-		assert.Contains(t, string(out), "--apiUrl string")
-		assert.Contains(t, string(out), "--authServerName string")
-		assert.Contains(t, string(out), "--credentialsName string")
-		assert.Contains(t, string(out), "--outputFormat string")
-		assert.Contains(t, string(out), "--profileName string")
+		assert.Contains(t, string(out), "--api-url string")
+		assert.Contains(t, string(out), "--auth-server-name string")
+		assert.Contains(t, string(out), "--credentials-name string")
+		assert.Contains(t, string(out), "--output-format string")
+		assert.Contains(t, string(out), "--profile-name string")
 		assert.Contains(t, string(out), "--raw")
 	})
 
