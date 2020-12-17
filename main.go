@@ -601,7 +601,7 @@ func writeFormattedFile(filename string, data []byte) {
 	}
 }
 
-func initCmd(cmd *cobra.Command, args []string) {
+func initCmd(cmd *cobra.Command, args []string, out string) {
 	if _, err := os.Stat("main.go"); err == nil {
 		fmt.Println("Refusing to overwrite existing main.go")
 		return
@@ -627,7 +627,7 @@ func initCmd(cmd *cobra.Command, args []string) {
 	writeFormattedFile("main.go", []byte(sb.String()))
 }
 
-func generate(cmd *cobra.Command, args []string) {
+func generate(cmd *cobra.Command, args []string, out string) {
 	data, err := ioutil.ReadFile(args[0])
 	if err != nil {
 		log.Fatal(err)
@@ -663,25 +663,39 @@ func generate(cmd *cobra.Command, args []string) {
 		panic(err)
 	}
 
-	writeFormattedFile(shortName+".go", []byte(sb.String()))
+	if out == "" {
+		out = fmt.Sprintf("%s.go", shortName)
+	}
+	writeFormattedFile(out, []byte(sb.String()))
 }
 
 func main() {
 	root := &cobra.Command{}
 
-	root.AddCommand(&cobra.Command{
+	var initOut = new(string)
+	initCommand := &cobra.Command{
 		Use:   "init <app-name>",
 		Short: "Initialize and generate a `main.go` file for your project",
 		Args:  cobra.ExactArgs(1),
-		Run:   initCmd,
-	})
+		Run:   func(cmd *cobra.Command, args []string) {
+			initCmd(cmd, args, *initOut)
+		},
+	}
+	root.AddCommand(initCommand)
+	initOut = initCommand.Flags().StringP("out", "o", "main.go", "Output path for the generated file.")
+	root.AddCommand(initCommand)
 
-	root.AddCommand(&cobra.Command{
+	var generateOut = new(string)
+	generateCommand := &cobra.Command{
 		Use:   "generate <api-spec>",
 		Short: "Generate a `commands.go` file from an OpenAPI spec",
 		Args:  cobra.ExactArgs(1),
-		Run:   generate,
-	})
+		Run:   func(cmd *cobra.Command, args []string) {
+			generate(cmd, args, *generateOut)
+		},
+	}
+	generateOut = generateCommand.Flags().StringP("out", "o", "", "Output path for the generated file. If not provided, will default to name of <api-spec>.")
+	root.AddCommand(generateCommand)
 
 	root.Execute()
 }
