@@ -39,20 +39,38 @@ var viperBindPaths = map[string]string{
 	"profile-name": "default_profile_name",
 }
 
-func MakeAndParseGlobalFlags() (globalFlags []GlobalFlag, err error) {
+type GlobalFlagDefaults struct {
+	ProfileName     string
+	AuthServerName  string
+	CredentialsName string
+	ApiURL          string
+	OutputFormat    string
+	Raw             bool
+}
+
+func NewGlobalFlagDefaults(apiURL string) GlobalFlagDefaults {
+	return GlobalFlagDefaults{
+		ProfileName:     "default",
+		AuthServerName:  "default",
+		CredentialsName: "default",
+		OutputFormat:    "json",
+		ApiURL:          apiURL,
+	}
+}
+
+func MakeAndParseGlobalFlags(defaults GlobalFlagDefaults) (globalFlags []GlobalFlag, err error) {
 	flagSet := pflag.NewFlagSet("global", pflag.ContinueOnError)
 	flagSet.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{
 		UnknownFlags: true,
 	}
 
-	flagSet.String("profile-name", "default", "")
-	flagSet.String("auth-server-name", "default", "")
-	flagSet.String("credentials-name", "default", "")
-	// TODO: include API URL from config as default here.
-	flagSet.String("api-url", "", "")
-	flagSet.StringP("output-format", "o", "json", "Output format [json, yaml]")
+	flagSet.String("profile-name", defaults.ProfileName, "")
+	flagSet.String("auth-server-name", defaults.AuthServerName, "")
+	flagSet.String("credentials-name", defaults.CredentialsName, "")
+	flagSet.String("api-url", defaults.ApiURL, "")
+	flagSet.StringP("output-format", "o", defaults.OutputFormat, "Output format [json, yaml]")
 	flagSet.BoolP("help", "h", false, "")
-	flagSet.Bool("raw", false, "Output result of query as raw rather than an escaped JSON string or list")
+	flagSet.Bool("raw", defaults.Raw, "Output result of query as raw rather than an escaped JSON string or list")
 	err = flagSet.Parse(os.Args[1:])
 	if err != nil {
 		return
@@ -158,4 +176,3 @@ func toSnakeCase(str string) string {
 	output = strings.ReplaceAll(output, "-", "_")
 	return strings.ToLower(output)
 }
-
