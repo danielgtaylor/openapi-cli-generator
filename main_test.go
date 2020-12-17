@@ -79,21 +79,20 @@ func TestConfiguration(t *testing.T) {
 	t.Run("can set and read settings", func(t *testing.T) {
 		var out []byte
 		var err error
-		out, err = exec.Command("sh", "-c", "example-cli config setting default_profile_name bogus").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli config set default_profile_name bogus").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
 		}
 
-		out, err = exec.Command("sh", "-c", "example-cli config setting default_profile_name").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli config get default_profile_name").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
 		}
-
+		fmt.Println(string(out))
 		assert.Equal(t, "bogus", strings.TrimSpace(string(out)))
 	})
-
 }
 
 func TestAuth(t *testing.T) {
@@ -112,6 +111,42 @@ func TestAuth(t *testing.T) {
 			panic(err)
 		}
 		assert.Contains(t,  string(out),"| auth1   |        01 | https://auth.test.sh |")
+	})
+
+	t.Run("can get and set existing secrets.toml values", func(t *testing.T) {
+		var out []byte
+		var err error
+		out, err = exec.Command("sh", "-c", "example-cli auth get credentials.default.token_payload.access_token").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		assert.Equal(t, "access", strings.TrimSpace(string(out)))
+
+		out, err = exec.Command("sh", "-c", "example-cli auth get credentials.default.token_payload.refresh_token").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		assert.Equal(t, "refresh", strings.TrimSpace(string(out)))
+	})
+
+	t.Run("can get and set new secrets.toml values", func(t *testing.T) {
+		var out []byte
+		var err error
+		out, err = exec.Command("sh", "-c", "example-cli auth set credentials.new.token_payload.access_token newAccess").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		assert.Equal(t, "", strings.TrimSpace(string(out)))
+
+		out, err = exec.Command("sh", "-c", "example-cli auth get credentials.new.token_payload.access_token").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		assert.Equal(t, "newAccess", strings.TrimSpace(string(out)))
 	})
 }
 

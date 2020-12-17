@@ -42,15 +42,16 @@ func AddAuthCommands(parent *cobra.Command) {
 		Short: "Authentication settings",
 	}
 
-	authCommand.AddCommand(initAuthAddServersCommand())
-	authCommand.AddCommand(initAuthAddCredentialsCommand())
-	authCommand.AddCommand(initAuthListServersCommand())
-	authCommand.AddCommand(initAuthListCredentialsCommand())
+	addAuthAddServersCommand(authCommand)
+	addAuthAddCredentialsCommand(authCommand)
+	addAuthListServersCommand(authCommand)
+	addAuthListCredentialsCommand(authCommand)
+	addAuthGetSetCommands(authCommand)
 
 	parent.AddCommand(authCommand)
 }
 
-func initAuthAddServersCommand() *cobra.Command {
+func addAuthAddServersCommand(parent *cobra.Command) {
 	var clientID string
 	var issuer string
 	cmd := &cobra.Command{
@@ -78,17 +79,10 @@ func initAuthAddServersCommand() *cobra.Command {
 	cmd.Flags().StringVar(&clientID, "client-id", "", "")
 	cmd.Flags().StringVar(&issuer, "issuer", "", "")
 
-	/*
-	SetCustomFlags(cmd)
-
-	if cmd.Flags().HasFlags() {
-		params.BindPFlags(cmd.Flags())
-	}
-	 */
-	return cmd
+	parent.AddCommand(cmd)
 }
 
-func initAuthAddCredentialsCommand() *cobra.Command {
+func addAuthAddCredentialsCommand(parent *cobra.Command) {
 	var authServerName string
 
 	cmd := &cobra.Command{
@@ -117,17 +111,10 @@ func initAuthAddCredentialsCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&authServerName, "auth-server-name", "", "")
 
-	/*
-	SetCustomFlags(cmd)
-
-	if cmd.Flags().HasFlags() {
-		params.BindPFlags(cmd.Flags())
-	}
-	 */
-	return cmd
+	parent.AddCommand(cmd)
 }
 
-func initAuthListCredentialsCommand() *cobra.Command {
+func addAuthListCredentialsCommand(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:     "list-credentials",
 		Short:   "List available credentials",
@@ -147,10 +134,10 @@ func initAuthListCredentialsCommand() *cobra.Command {
 			}
 		},
 	}
-	return cmd
+	parent.AddCommand(cmd)
 }
 
-func initAuthListServersCommand() *cobra.Command {
+func addAuthListServersCommand(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:     "list-servers",
 		Short:   "List available authentication servers",
@@ -171,7 +158,29 @@ func initAuthListServersCommand() *cobra.Command {
 			}
 		},
 	}
-	return cmd
+	parent.AddCommand(cmd)
+}
+
+func addAuthGetSetCommands(parent *cobra.Command) {
+	get := &cobra.Command{
+		Use:   "get",
+		Short: "Get a value from secrets.toml",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			runConfig(RunConfig.secretsPath, RunConfig.Secrets, args)
+		},
+	}
+	parent.AddCommand(get)
+
+	set := &cobra.Command{
+		Use:   "set",
+		Short: "Set a value in secrets.toml",
+		Args:  cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			runConfig(RunConfig.secretsPath, RunConfig.Secrets, args)
+		},
+	}
+	parent.AddCommand(set)
 }
 
 // UseAuth registers a new auth handler for a given type name. For backward-

@@ -26,5 +26,14 @@ issuer = ""
 api_url = "https://www.test.sh"
 EOL
 
+cat >$HOME/.example/secrets.toml <<EOL
+[credentials]
+[credentials.default]
+[credentials.default.token_payload]
+access_token = "access"
+refresh_token = "refresh"
+token_type = "Bearer"
+EOL
+
 # Run all the tests!
 go test "$@" ./...

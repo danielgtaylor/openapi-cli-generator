@@ -326,11 +326,12 @@ func AddConfigCommands(parent *cobra.Command) {
 		Use:   "config",
 		Short: "Interact with configuration",
 	}
-	addConfigCommands(configCommand)
+	addConfigGetSetCommands(configCommand)
 
 	parent.AddCommand(configCommand)
 }
 
+// WARNING: This does not support array indices in its current implementation.
 func runConfig(filePath string, topLevel interface{}, args []string) {
 	logger := log.With().Logger()
 
@@ -341,7 +342,7 @@ func runConfig(filePath string, topLevel interface{}, args []string) {
 			logger.Fatal().Err(err).Msgf("could not find value at path %q", path)
 			return
 		}
-		logger.Log().Msgf("%v", currentValue.Interface())
+		fmt.Printf("%v\n", currentValue.Interface())
 		return
 	}
 
@@ -363,26 +364,26 @@ func runConfig(filePath string, topLevel interface{}, args []string) {
 	}
 }
 
-func addConfigCommands(parent *cobra.Command) {
-	setting := &cobra.Command{
-		Use:   "setting",
-		Short: "Get or set setting value",
-		Args:  cobra.RangeArgs(1, 2),
+func addConfigGetSetCommands(parent *cobra.Command) {
+	get := &cobra.Command{
+		Use:   "get",
+		Short: "Get a value from settings.toml",
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			runConfig(RunConfig.settingsPath, RunConfig.Settings, args)
 		},
 	}
-	parent.AddCommand(setting)
+	parent.AddCommand(get)
 
-	secret := &cobra.Command{
-		Use:   "secret",
-		Short: "Get or set secret value",
-		Args:  cobra.RangeArgs(1, 2),
+	set := &cobra.Command{
+		Use:   "set",
+		Short: "Set a value in settings.toml",
+		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			runConfig(RunConfig.secretsPath, RunConfig.Secrets, args)
+			runConfig(RunConfig.settingsPath, RunConfig.Settings, args)
 		},
 	}
-	parent.AddCommand(secret)
+	parent.AddCommand(set)
 }
 
 var errTagNotFound = errors.New("tag not found")

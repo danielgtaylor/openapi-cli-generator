@@ -45,7 +45,7 @@ func MakeAndParseGlobalFlags() (globalFlags []GlobalFlag, err error) {
 		UnknownFlags: true,
 	}
 
-	flagSet.String("profilfe-name", "default", "")
+	flagSet.String("profile-name", "default", "")
 	flagSet.String("auth-server-name", "default", "")
 	flagSet.String("credentials-name", "default", "")
 	// TODO: include API URL from config as default here.
