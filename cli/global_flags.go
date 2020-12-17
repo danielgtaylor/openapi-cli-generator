@@ -58,8 +58,8 @@ func NewGlobalFlagDefaults(apiURL string) GlobalFlagDefaults {
 	}
 }
 
-func MakeAndParseGlobalFlags(defaults GlobalFlagDefaults) (globalFlags []GlobalFlag, err error) {
-	flagSet := pflag.NewFlagSet("global", pflag.ContinueOnError)
+func MakeAndParseGlobalFlags(defaults GlobalFlagDefaults) (globalFlags []GlobalFlag, flagSet *pflag.FlagSet, err error) {
+	flagSet = pflag.NewFlagSet("global", pflag.ContinueOnError)
 	flagSet.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{
 		UnknownFlags: true,
 	}

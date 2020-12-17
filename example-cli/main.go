@@ -19,12 +19,12 @@ func main() {
 	cli.Init(config)
 
 	defaults := cli.NewGlobalFlagDefaults("http://localhost:8000")
-	globalFlags, err := cli.MakeAndParseGlobalFlags(defaults)
+	globalFlags, globalFlagSet, err := cli.MakeAndParseGlobalFlags(defaults)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	openapiRegister(false, globalFlags)
+	openapiRegister(false)
 
 	err = cli.InitConfiguration("EXAMPLE", getTOMLFilePath("settings"), getTOMLFilePath("secrets"), globalFlags)
 	if err != nil {
@@ -33,6 +33,8 @@ func main() {
 
 	cli.AddConfigCommands(cli.Root)
 	cli.AddAuthCommands(cli.Root)
+
+	cli.Root.PersistentFlags().AddFlagSet(globalFlagSet)
 
 	cli.Root.Execute()
 }

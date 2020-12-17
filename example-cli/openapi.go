@@ -77,7 +77,7 @@ func OpenapiEcho(params *viper.Viper, body string) (*gentleman.Response, map[str
 	return resp, decoded, nil
 }
 
-func openapiRegister(subcommand bool, globalFlags []cli.GlobalFlag) {
+func openapiRegister(subcommand bool) {
 	root := cli.Root
 
 	if subcommand {
@@ -131,10 +131,6 @@ func openapiRegister(subcommand bool, globalFlags []cli.GlobalFlag) {
 
 		if cmd.Flags().HasFlags() {
 			params.BindPFlags(cmd.Flags())
-		}
-
-		for _, globalFlag := range globalFlags {
-			cmd.Flags().AddFlag(globalFlag.Flag)
 		}
 
 	}()

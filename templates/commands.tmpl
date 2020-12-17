@@ -38,11 +38,6 @@ import (
 	if cmd.Flags().HasFlags() {
 		params.BindPFlags(cmd.Flags())
 	}
-
-	for _, globalFlag := range globalFlags {
-	    cmd.Flags().AddFlag(globalFlag.Flag)
-	}
-
 {{ end }}
 
 {{ $name := .Name }}
@@ -175,7 +170,7 @@ func {{ $api }}Servers() []map[string]string {
 	}
 {{ end }}
 
-func {{ $api }}Register(subcommand bool, globalFlags []cli.GlobalFlag) {
+func {{ $api }}Register(subcommand bool) {
 	root := cli.Root
 
 	if subcommand {

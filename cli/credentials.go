@@ -138,6 +138,7 @@ func addAuthListCredentialsCommand(parent *cobra.Command) {
 }
 
 func addAuthListServersCommand(parent *cobra.Command) {
+	// parent.PersistentFlags().Add
 	cmd := &cobra.Command{
 		Use:     "list-servers",
 		Short:   "List available authentication servers",

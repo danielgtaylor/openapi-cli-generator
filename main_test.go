@@ -151,8 +151,10 @@ func TestAuth(t *testing.T) {
 }
 
 func TestGlobalFlags(t *testing.T) {
-	t.Run("", func(t *testing.T) {
+	t.Run("global flags are printed separately", func(t *testing.T) {
 		out, _ := exec.Command("sh", "-c", "example-cli echo --help").CombinedOutput()
+		t.Log(string(out))
+		assert.Contains(t, string(out), "Global Flags:")
 		assert.Contains(t, string(out), "--api-url string")
 		assert.Contains(t, string(out), "--auth-server-name string")
 		assert.Contains(t, string(out), "--credentials-name string")

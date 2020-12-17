@@ -11,7 +11,7 @@ cd example-cli
 rm -rf main.go
 openapi-cli-generator init example
 openapi-cli-generator generate openapi.yaml
-sed -i'' -e 's/\/\/ TODO: Add register commands here./openapiRegister(false, globalFlags)/' main.go
+sed -i'' -e 's/\/\/ TODO: Add register commands here./openapiRegister(false)/' main.go
 go install
 cd ..
 
