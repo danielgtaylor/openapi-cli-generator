@@ -23,6 +23,9 @@ func getBindPathsFromProfile(flagName string, args ...interface{}) (paths []stri
 	for profileName := range settings.Profiles {
 		paths = append(paths, fmt.Sprintf("profiles.%s.%s", profileName, toSnakeCase(flagName)))
 	}
+	if len(paths) == 0 {
+		paths = append(paths, fmt.Sprintf("profiles.%s.%s", "default", toSnakeCase(flagName)))
+	}
 	return
 }
 
@@ -42,10 +45,11 @@ func MakeAndParseGlobalFlags() (globalFlags []GlobalFlag, err error) {
 		UnknownFlags: true,
 	}
 
-	flagSet.String("profile-name", "default", "")
+	flagSet.String("profilfe-name", "default", "")
 	flagSet.String("auth-server-name", "default", "")
 	flagSet.String("credentials-name", "default", "")
-	flagSet.String("api-url", "https://http", "")
+	// TODO: include API URL from config as default here.
+	flagSet.String("api-url", "", "")
 	flagSet.StringP("output-format", "o", "json", "Output format [json, yaml]")
 	flagSet.BoolP("help", "h", false, "")
 	flagSet.Bool("raw", false, "Output result of query as raw rather than an escaped JSON string or list")

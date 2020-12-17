@@ -87,16 +87,6 @@ func getOauth2Token(source oauth2.TokenSource, log *zerolog.Logger) (token *oaut
 		return
 	}
 
-	if cached == nil || (token.AccessToken != cached.AccessToken) {
-		// Token either didn't exist in the cache or has changed, so let's write
-		// the new values to the CLI cache.
-		log.Debug().Msg("Token refreshed. Updating cache.")
-
-		err = cli.RunConfig.UpdateCredentialsToken(cli.RunConfig.GetProfile().CredentialsName, token)
-		if err != nil {
-			return
-		}
-	}
 	return
 }
 
@@ -105,6 +95,15 @@ func getOauth2Token(source oauth2.TokenSource, log *zerolog.Logger) (token *oaut
 // profile basis between runs.
 func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.Request) error {
 	token, err := getOauth2Token(source, log)
+	if err != nil {
+		return err
+	}
+
+	// Token either didn't exist in the cache or has changed, so let's write
+	// the new values to the CLI cache.
+	log.Debug().Msg("Token refreshed. Updating cache.")
+
+	err = cli.RunConfig.UpdateCredentialsToken(cli.RunConfig.GetProfile().CredentialsName, token)
 	if err != nil {
 		return err
 	}

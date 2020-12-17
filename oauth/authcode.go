@@ -221,6 +221,7 @@ func (h *AuthCodeHandler) getRefreshTokenSource(log *zerolog.Logger) RefreshToke
 
 // ExecuteFlow gets run before the request goes out on the wire.
 func (h *AuthCodeHandler) ExecuteFlow(log *zerolog.Logger) (*oauth2.Token, error) {
+	fmt.Println("ExecuteFlow")
 	source := h.getRefreshTokenSource(log)
 	return getOauth2Token(source, log)
 }

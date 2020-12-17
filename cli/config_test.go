@@ -2,6 +2,7 @@ package cli
 
 import (
 	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 )
 
@@ -23,7 +24,7 @@ func TestConfig(t *testing.T) {
 		Settings:     Settings{
 			DefaultProfileName: "default",
 			Profiles:           map[string]Profile{
-				"default": {
+				"tester": {
 					ApiURL: "https://api.dev.qcs.rigetti.com",
 				},
 			},
@@ -50,9 +51,9 @@ func TestConfig(t *testing.T) {
 	t.Run("test getValueFromPath success", func(t *testing.T) {
 		t.Parallel()
 
-		value, err := getValueFromPath(clientConfiguration.Settings, "profiles.default.api_url")
+		value, err := getValueFromPath(clientConfiguration.Settings, "profiles.tester.api_url")
 		assert.Nil(t, err)
-		assert.Equal(t, clientConfiguration.Settings.Profiles["default"].ApiURL, value.String())
+		assert.Equal(t, clientConfiguration.Settings.Profiles["tester"].ApiURL, value.String())
 
 		value, err = getValueFromPath(clientConfiguration.Secrets, "credentials.A.token_payload.access_token")
 		assert.Nil(t, err)
@@ -72,21 +73,43 @@ func TestConfig(t *testing.T) {
 	t.Run("test getValueFromPath struct field doesnt exist", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := getValueFromPath(clientConfiguration.Settings, "profiles.default.doesntexist")
+		_, err := getValueFromPath(clientConfiguration.Settings, "profiles.doesntexist.doesntexist")
 		assert.Equal(t, errTagNotFound, err)
 
 		_, err = getValueFromPath(clientConfiguration.Secrets, "credentials.A.token_payload.doesntexist")
 		assert.NotNil(t, errTagNotFound, err)
 	})
 
+	t.Run("test getValueFromPath struct field doesnt deep", func(t *testing.T) {
+		t.Parallel()
+
+		value, err := getValueFromPath(clientConfiguration.Settings, "profiles.doesntexist.applications.cli.verbosity")
+		assert.Equal(t, errTagNotFound, err)
+		assert.Equal(t, reflect.ValueOf(nil), value)
+	})
+
+	t.Run("test getTypeFromPath struct field doesnt deep", func(t *testing.T) {
+		t.Parallel()
+
+		reflectType, err := getTypeFromPath(reflect.TypeOf(clientConfiguration.Settings), "profiles.doesntexist.applications.cli.verbosity")
+		assert.Nil(t, err)
+		assert.Equal(t, reflect.TypeOf(VerbosityTypeDebug), reflectType)
+	})
+
 	t.Run("test parseNewValue success", func(t *testing.T) {
 		t.Parallel()
 
-		value, err := getValueFromPath(clientConfiguration.Settings, "profiles.default.api_url")
+		value, err := getValueFromPath(clientConfiguration.Settings, "profiles.tester.api_url")
 		assert.Nil(t, err)
-		assert.Equal(t, clientConfiguration.Settings.Profiles["default"].ApiURL, value.String())
+		assert.Equal(t, clientConfiguration.Settings.Profiles["tester"].ApiURL, value.String())
 
-		newValue, err := parseNewValue("https://www.update.com", value)
+		reflectType, err := getTypeFromPath(reflect.TypeOf(clientConfiguration.Settings), "profiles.P.api_url")
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, reflect.String, reflectType.Kind())
+
+		newValue, err := parseNewValue("https://www.update.com", reflectType)
 		assert.Nil(t, err)
 		val, ok := newValue.(string)
 		assert.True(t, ok)

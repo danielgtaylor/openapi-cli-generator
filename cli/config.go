@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/rigetti/openapi-cli-generator/oauth"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cast"
@@ -120,7 +119,7 @@ type Profile struct {
 	ApiURL          string `mapstructure:"api_url"`
 	AuthServerName  string `mapstructure:"auth_server_name"`
 	CredentialsName string `mapstructure:"credentials_name"`
-	Applications
+	Applications `mapstructure:"applications"`
 }
 
 type Settings struct {
@@ -181,11 +180,16 @@ func loadSecrets(envPrefix, secretsFilePath string) (secrets Secrets, err error)
 		return
 	}
 
+	v.AutomaticEnv()
+
 	err = v.Unmarshal(&secrets)
 	if err != nil {
 		return
 	}
-	v.AutomaticEnv()
+
+	if secrets.Credentials == nil {
+		secrets.Credentials = make(map[string]Credentials)
+	}
 
 	return secrets, nil
 }
@@ -210,6 +214,12 @@ func loadSettings(envPrefix, settingsFilePath string) (settings Settings, err er
 		return
 	}
 
+	if settings.AuthServers == nil {
+		settings.AuthServers = make(map[string]AuthServer)
+	}
+	if settings.Profiles == nil {
+		settings.Profiles = make(map[string]Profile)
+	}
 	settings.viper = v
 	return settings, nil
 }
@@ -262,21 +272,6 @@ func LoadConfiguration(envPrefix, settingsFilePath, secretsFilePath string, glob
 		return
 	}
 	config.ProfileName = config.Settings.DefaultProfileName
-
-	for authServerName, authServer := range config.Settings.AuthServers {
-		scopes := authServer.Scopes
-		if scopes == nil {
-			scopes = []string{"openid", "profile", "email", "offline_access"}
-		}
-		UseAuth(authServerName, &oauth.AuthCodeHandler{
-			ClientID:     authServer.ClientID,
-			AuthorizeURL: authServer.Issuer + "/v1/authorize",
-			TokenURL:     authServer.Issuer + "/v1/token",
-			Keys:         authServer.Keys,
-			Params:       []string{},
-			Scopes:       scopes,
-		})
-	}
 
 	return
 }
@@ -340,19 +335,24 @@ func runConfig(filePath string, topLevel interface{}, args []string) {
 	logger := log.With().Logger()
 
 	path := args[0]
-	currentValue, err := getValueFromPath(topLevel, path)
-	if err != nil {
-		logger.Fatal().Err(err)
-	}
 	if len(args) == 1 {
-		fmt.Println(currentValue.String())
+		currentValue, err := getValueFromPath(topLevel, path)
+		if err != nil {
+			logger.Fatal().Err(err).Msgf("could not find value at path %q", path)
+			return
+		}
+		logger.Log().Msgf("%v", currentValue.Interface())
 		return
 	}
 
-	valueString := args[1]
-	value, err := parseNewValue(valueString, currentValue)
+	reflectType, err := getTypeFromPath(reflect.TypeOf(topLevel), path)
 	if err != nil {
-		logger.Fatal().Err(err)
+		logger.Fatal().Err(err).Msgf("%q is not a valid path", path)
+	}
+	valueString := args[1]
+	value, err := parseNewValue(valueString, reflectType)
+	if err != nil {
+		logger.Fatal().Err(err).Msgf("an error occurred parsing value %q", valueString)
 	}
 
 	updates := make(map[string]interface{})
@@ -389,21 +389,27 @@ var errTagNotFound = errors.New("tag not found")
 var errUnsupportedTag = errors.New("unsupported tag")
 
 func getValueOfTagField(t interface{}, tag string) (parsed interface{}, err error) {
+	parsed = nil
+	if t == nil {
+		return
+	}
 	interfaceType := reflect.TypeOf(t)
 	interfaceValue := reflect.ValueOf(t)
-	if interfaceValue.Kind() == reflect.Ptr {
+	if interfaceType.Kind() == reflect.Ptr {
 		interfaceType = interfaceType.Elem()
 		interfaceValue = interfaceValue.Elem()
 	}
-	if interfaceValue.Kind() == reflect.Map {
+	if interfaceType.Kind() == reflect.Map {
 		if interfaceValue.IsZero() {
-			return nil, errTagNotFound
+			err = errTagNotFound
+			return
 		}
-		parsedValue := interfaceValue.MapIndex(reflect.ValueOf(tag))
-		if !parsedValue.IsValid() {
-			return nil, errTagNotFound
+		elemValue := interfaceValue.MapIndex(reflect.ValueOf(tag))
+		if !elemValue.IsValid() {
+			err = errTagNotFound
+			return
 		}
-		parsed = parsedValue.Interface()
+		parsed = elemValue.Interface()
 		return
 	}
 	if interfaceValue.Kind() != reflect.Struct {
@@ -418,7 +424,37 @@ func getValueOfTagField(t interface{}, tag string) (parsed interface{}, err erro
 		}
 		firstTagValue := strings.Split(val, ",")[0]
 		if firstTagValue == toSnakeCase(tag) {
-			return interfaceValue.Field(i).Interface(), nil
+			fieldValue := interfaceValue.Field(i)
+			parsed = fieldValue.Interface()
+			return
+		}
+	}
+	err = errTagNotFound
+	return
+}
+
+func getTypeOfTagField(interfaceType reflect.Type, tag string) (reflectType reflect.Type, err error) {
+	if interfaceType.Kind() == reflect.Ptr {
+		interfaceType = interfaceType.Elem()
+	}
+	if interfaceType.Kind() == reflect.Map {
+		reflectType = interfaceType.Elem()
+		return
+	}
+	if interfaceType.Kind() != reflect.Struct {
+		err = fmt.Errorf("unsupported interface kind %s", interfaceType.Kind())
+		return
+	}
+	for i := 0; i < interfaceType.NumField(); i++ {
+		field := interfaceType.Field(i)
+		val, ok := field.Tag.Lookup("mapstructure")
+		if !ok {
+			continue
+		}
+		firstTagValue := strings.Split(val, ",")[0]
+		if firstTagValue == toSnakeCase(tag) {
+			reflectType = field.Type
+			return
 		}
 	}
 	return nil, errTagNotFound
@@ -432,6 +468,7 @@ func getValueFromPath(value interface{}, path string) (reflectValue reflect.Valu
 	for _, part := range parts {
 		cursor, err = getValueOfTagField(cursor, part)
 		if err != nil {
+			reflectValue = reflect.ValueOf(cursor)
 			return
 		}
 	}
@@ -439,8 +476,21 @@ func getValueFromPath(value interface{}, path string) (reflectValue reflect.Valu
 	return
 }
 
-func parseNewValue(newValue interface{}, currentValue reflect.Value) (parsed interface{}, err error) {
-	switch currentValue.Type().Kind() {
+func getTypeFromPath(parent reflect.Type, path string) (reflectType reflect.Type, err error) {
+	parts := strings.Split(path, ".")
+
+	reflectType = parent
+	for _, part := range parts {
+		reflectType, err = getTypeOfTagField(reflectType, part)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func parseNewValue(newValue interface{}, reflectType reflect.Type) (parsed interface{}, err error) {
+	switch reflectType.Kind() {
 	case reflect.Int:
 		return cast.ToIntE(newValue)
 	case reflect.Float64:

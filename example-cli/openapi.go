@@ -6,8 +6,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/rigetti/openapi-cli-generator/cli"
 	"github.com/pkg/errors"
+	"github.com/rigetti/openapi-cli-generator/cli"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
