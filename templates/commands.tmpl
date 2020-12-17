@@ -170,8 +170,8 @@ func {{ $api }}Servers() []map[string]string {
 	}
 {{ end }}
 
-func {{ $api }}Register(subcommand bool) {
-	root := cli.Root
+func {{ $api }}Register(subcommand bool) (root *cobra.Command) {
+	root = cli.Root
 
 	if subcommand {
 		root = &cobra.Command{
@@ -308,4 +308,5 @@ func {{ $api }}Register(subcommand bool) {
 			{{ template "params" . }}
 		}()
 	{{ end }}
+	return
 }

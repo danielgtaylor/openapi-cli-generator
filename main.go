@@ -130,7 +130,7 @@ type OpenAPI struct {
 
 // ProcessAPI returns the API description to be used with the commands template
 // for a loaded and dereferenced OpenAPI 3 document.
-func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
+func ProcessAPI(shortName, cmdName string, api *openapi3.Swagger) *OpenAPI {
 	apiName := shortName
 	if api.Info.Extensions[ExtName] != nil {
 		apiName = extStr(api.Info.Extensions[ExtName])
@@ -143,8 +143,8 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 
 	result := &OpenAPI{
 		Name:         apiName,
-		GoName:       toGoName(shortName, false),
-		PublicGoName: toGoName(shortName, true),
+		GoName:       toGoName(cmdName, false),
+		PublicGoName: toGoName(cmdName, true),
 		Title:        api.Info.Title,
 		Description:  escapeString(apiDescription),
 	}
@@ -601,8 +601,9 @@ func writeFormattedFile(filename string, data []byte) {
 	}
 }
 
-func initCmd(cmd *cobra.Command, args []string, out string) {
-	if _, err := os.Stat("main.go"); err == nil {
+func initCmd(cmd *cobra.Command, args []string, genOptions generateOptions) {
+	out := *genOptions.out
+	if _, err := os.Stat(out); err == nil {
 		fmt.Println("Refusing to overwrite existing main.go")
 		return
 	}
@@ -624,10 +625,10 @@ func initCmd(cmd *cobra.Command, args []string, out string) {
 		panic(err)
 	}
 
-	writeFormattedFile("main.go", []byte(sb.String()))
+	writeFormattedFile(out, []byte(sb.String()))
 }
 
-func generate(cmd *cobra.Command, args []string, out string) {
+func generate(cmd *cobra.Command, args []string, genOptions generateOptions) {
 	data, err := ioutil.ReadFile(args[0])
 	if err != nil {
 		log.Fatal(err)
@@ -655,7 +656,11 @@ func generate(cmd *cobra.Command, args []string, out string) {
 
 	shortName := strings.TrimSuffix(path.Base(args[0]), ".yaml")
 
-	templateData := ProcessAPI(shortName, swagger)
+	appName := *genOptions.appName
+	if appName == "" {
+		appName = shortName
+	}
+	templateData := ProcessAPI(shortName, appName, swagger)
 
 	var sb strings.Builder
 	err = tmpl.Execute(&sb, templateData)
@@ -663,38 +668,44 @@ func generate(cmd *cobra.Command, args []string, out string) {
 		panic(err)
 	}
 
+	out := *genOptions.out
 	if out == "" {
 		out = fmt.Sprintf("%s.go", shortName)
 	}
 	writeFormattedFile(out, []byte(sb.String()))
 }
 
+type generateOptions struct {
+	appName *string
+	out *string
+}
+
 func main() {
 	root := &cobra.Command{}
 
-	var initOut = new(string)
+	initOptions := generateOptions{}
 	initCommand := &cobra.Command{
 		Use:   "init <app-name>",
 		Short: "Initialize and generate a `main.go` file for your project",
 		Args:  cobra.ExactArgs(1),
 		Run:   func(cmd *cobra.Command, args []string) {
-			initCmd(cmd, args, *initOut)
+			initCmd(cmd, args, initOptions)
 		},
 	}
-	root.AddCommand(initCommand)
-	initOut = initCommand.Flags().StringP("out", "o", "main.go", "Output path for the generated file.")
+	initOptions.out = initCommand.Flags().StringP("out", "o", "main.go", "Output path for the generated file.")
 	root.AddCommand(initCommand)
 
-	var generateOut = new(string)
+	genOptions := generateOptions{}
 	generateCommand := &cobra.Command{
 		Use:   "generate <api-spec>",
 		Short: "Generate a `commands.go` file from an OpenAPI spec",
 		Args:  cobra.ExactArgs(1),
 		Run:   func(cmd *cobra.Command, args []string) {
-			generate(cmd, args, *generateOut)
+			generate(cmd, args, genOptions)
 		},
 	}
-	generateOut = generateCommand.Flags().StringP("out", "o", "", "Output path for the generated file. If not provided, will default to name of <api-spec>.")
+	genOptions.out = generateCommand.Flags().StringP("out", "o", "", "Output path for the generated file. If not provided, will default to name of <api-spec>.")
+	genOptions.appName = generateCommand.Flags().String("name", "", "Name of CLI application and top level command.")
 	root.AddCommand(generateCommand)
 
 	root.Execute()

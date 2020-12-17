@@ -77,8 +77,8 @@ func OpenapiEcho(params *viper.Viper, body string) (*gentleman.Response, map[str
 	return resp, decoded, nil
 }
 
-func openapiRegister(subcommand bool) {
-	root := cli.Root
+func openapiRegister(subcommand bool) (root *cobra.Command) {
+	root = cli.Root
 
 	if subcommand {
 		root = &cobra.Command{
@@ -135,4 +135,5 @@ func openapiRegister(subcommand bool) {
 
 	}()
 
+	return
 }
