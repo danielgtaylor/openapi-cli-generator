@@ -30,31 +30,32 @@ type AuthHandler interface {
 var AuthHandlers = make(map[string]AuthHandler)
 
 var authInitialized bool
-var authCommand *cobra.Command
 
-// AddAuthCommands sets up basic commands and the credentials file so that new auth
+// BuildAuthCommands sets up basic commands and the credentials file so that new auth
 // handlers can be registered. This MUST be called only after auth handlers have
 // been set up through UseAuth.
-func AddAuthCommands(parent *cobra.Command) {
+func BuildAuthCommands() (cmd *cobra.Command) {
 	// Add base auth commands
-	authCommand = &cobra.Command{
+	cmd = &cobra.Command{
 		Use:   "auth",
 		Short: "Authentication settings",
 	}
 
-	addAuthAddServersCommand(authCommand)
-	addAuthAddCredentialsCommand(authCommand)
-	addAuthListServersCommand(authCommand)
-	addAuthListCredentialsCommand(authCommand)
-	addAuthGetSetCommands(authCommand)
+	cmd.AddCommand(
+		buildAuthAddServersCommand(),
+		buildAuthAddCredentialsCommand(),
+		buildAuthListServersCommand(),
+		buildAuthListCredentialsCommand(),
+		buildAuthGetCommand(),
+		buildAuthSetCommand())
 
-	parent.AddCommand(authCommand)
+	return
 }
 
-func addAuthAddServersCommand(parent *cobra.Command) {
+func buildAuthAddServersCommand() (cmd *cobra.Command) {
 	var clientID string
 	var issuer string
-	cmd := &cobra.Command{
+	cmd = &cobra.Command{
 		Use:   "add-server",
 		Short: "Add a new authentication server",
 		Args:  cobra.ExactArgs(1),
@@ -79,13 +80,13 @@ func addAuthAddServersCommand(parent *cobra.Command) {
 	cmd.Flags().StringVar(&clientID, "client-id", "", "")
 	cmd.Flags().StringVar(&issuer, "issuer", "", "")
 
-	parent.AddCommand(cmd)
+	return
 }
 
-func addAuthAddCredentialsCommand(parent *cobra.Command) {
+func buildAuthAddCredentialsCommand() (cmd *cobra.Command) {
 	var authServerName string
 
-	cmd := &cobra.Command{
+	cmd = &cobra.Command{
 		Use:   "add-credentials",
 		Short: "Add a new set of credentials",
 		Args:  cobra.ExactArgs(1),
@@ -111,11 +112,11 @@ func addAuthAddCredentialsCommand(parent *cobra.Command) {
 	}
 	cmd.Flags().StringVar(&authServerName, "auth-server-name", "", "")
 
-	parent.AddCommand(cmd)
+	return
 }
 
-func addAuthListCredentialsCommand(parent *cobra.Command) {
-	cmd := &cobra.Command{
+func buildAuthListCredentialsCommand() (cmd *cobra.Command) {
+	cmd = &cobra.Command{
 		Use:     "list-credentials",
 		Short:   "List available credentials",
 		Args:    cobra.NoArgs,
@@ -134,12 +135,12 @@ func addAuthListCredentialsCommand(parent *cobra.Command) {
 			}
 		},
 	}
-	parent.AddCommand(cmd)
+	return
 }
 
-func addAuthListServersCommand(parent *cobra.Command) {
+func buildAuthListServersCommand() (cmd *cobra.Command) {
 	// parent.PersistentFlags().Add
-	cmd := &cobra.Command{
+	cmd = &cobra.Command{
 		Use:     "list-servers",
 		Short:   "List available authentication servers",
 		Args:    cobra.NoArgs,
@@ -159,11 +160,11 @@ func addAuthListServersCommand(parent *cobra.Command) {
 			}
 		},
 	}
-	parent.AddCommand(cmd)
+	return
 }
 
-func addAuthGetSetCommands(parent *cobra.Command) {
-	get := &cobra.Command{
+func buildAuthGetCommand() (cmd *cobra.Command) {
+	cmd = &cobra.Command{
 		Use:   "get",
 		Short: "Get a value from secrets.toml",
 		Args:  cobra.ExactArgs(1),
@@ -171,9 +172,11 @@ func addAuthGetSetCommands(parent *cobra.Command) {
 			runConfig(RunConfig.secretsPath, RunConfig.Secrets, args)
 		},
 	}
-	parent.AddCommand(get)
+	return
+}
 
-	set := &cobra.Command{
+func buildAuthSetCommand() (cmd *cobra.Command) {
+	cmd = &cobra.Command{
 		Use:   "set",
 		Short: "Set a value in secrets.toml",
 		Args:  cobra.ExactArgs(2),
@@ -181,7 +184,7 @@ func addAuthGetSetCommands(parent *cobra.Command) {
 			runConfig(RunConfig.secretsPath, RunConfig.Secrets, args)
 		},
 	}
-	parent.AddCommand(set)
+	return
 }
 
 // UseAuth registers a new auth handler for a given type name. For backward-

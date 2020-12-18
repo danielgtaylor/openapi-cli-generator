@@ -321,14 +321,14 @@ func (cc ClientConfiguration) write(filePath string, updates map[string]interfac
 	return
 }
 
-func AddConfigCommands(parent *cobra.Command) {
-	configCommand := &cobra.Command{
+func BuildConfigCommands() (configCommand *cobra.Command) {
+	configCommand = &cobra.Command{
 		Use:   "config",
 		Short: "Interact with configuration",
 	}
-	addConfigGetSetCommands(configCommand)
+	configCommand.AddCommand(buildConfigGetCommand(), buildConfigSetCommand())
 
-	parent.AddCommand(configCommand)
+	return
 }
 
 // WARNING: This does not support array indices in its current implementation.
@@ -364,8 +364,8 @@ func runConfig(filePath string, topLevel interface{}, args []string) {
 	}
 }
 
-func addConfigGetSetCommands(parent *cobra.Command) {
-	get := &cobra.Command{
+func buildConfigGetCommand() (cmd *cobra.Command) {
+	cmd = &cobra.Command{
 		Use:   "get",
 		Short: "Get a value from settings.toml",
 		Args:  cobra.ExactArgs(1),
@@ -373,9 +373,10 @@ func addConfigGetSetCommands(parent *cobra.Command) {
 			runConfig(RunConfig.settingsPath, RunConfig.Settings, args)
 		},
 	}
-	parent.AddCommand(get)
-
-	set := &cobra.Command{
+	return
+}
+func buildConfigSetCommand() (cmd *cobra.Command) {
+	cmd = &cobra.Command{
 		Use:   "set",
 		Short: "Set a value in settings.toml",
 		Args:  cobra.ExactArgs(2),
@@ -383,7 +384,7 @@ func addConfigGetSetCommands(parent *cobra.Command) {
 			runConfig(RunConfig.settingsPath, RunConfig.Settings, args)
 		},
 	}
-	parent.AddCommand(set)
+	return
 }
 
 var errTagNotFound = errors.New("tag not found")
