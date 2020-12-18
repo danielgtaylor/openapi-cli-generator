@@ -6,8 +6,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/rigetti/openapi-cli-generator/cli"
 	"github.com/pkg/errors"
+	"github.com/rigetti/openapi-cli-generator/cli"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,10 +33,7 @@ func OpenapiEcho(params *viper.Viper, body string) (*gentleman.Response, map[str
 		handlerPath = "openapi " + handlerPath
 	}
 
-	server := viper.GetString("server")
-	if server == "" {
-		server = openapiServers()[viper.GetInt("server-index")]["url"]
-	}
+	server := cli.RunConfig.GetProfile().ApiURL
 
 	url := server + "/echo"
 
@@ -80,8 +77,8 @@ func OpenapiEcho(params *viper.Viper, body string) (*gentleman.Response, map[str
 	return resp, decoded, nil
 }
 
-func openapiRegister(subcommand bool) {
-	root := cli.Root
+func openapiRegister(subcommand bool) (root *cobra.Command) {
+	root = cli.Root
 
 	if subcommand {
 		root = &cobra.Command{
@@ -138,4 +135,5 @@ func openapiRegister(subcommand bool) {
 
 	}()
 
+	return
 }

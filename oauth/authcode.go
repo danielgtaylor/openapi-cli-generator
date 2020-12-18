@@ -19,7 +19,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
@@ -195,43 +194,43 @@ func (h *AuthCodeHandler) ProfileKeys() []string {
 	return h.Keys
 }
 
+func (h *AuthCodeHandler) getRefreshTokenSource(log *zerolog.Logger) RefreshTokenSource {
+	// No auth is set, so let's get the token either from a cache
+	// or generate a new one from the issuing server.
+	params := url.Values{}
+
+	source := &AuthorizationCodeTokenSource{
+		ClientID:       h.ClientID,
+		AuthorizeURL:   h.AuthorizeURL,
+		TokenURL:       h.TokenURL,
+		RedirectURI:    h.RedirectURI,
+		EndpointParams: &params,
+		Scopes:         h.Scopes,
+	}
+
+	// Try to get a cached refresh token from the current profile and use
+	// it to wrap the auth code token source with a refreshing source.
+	return RefreshTokenSource{
+		ClientID:       h.ClientID,
+		TokenURL:       h.TokenURL,
+		EndpointParams: &params,
+		RefreshToken:   cli.RunConfig.GetCredentials().TokenPayload.RefreshToken,
+		TokenSource:    source,
+	}
+}
+
+// ExecuteFlow gets run before the request goes out on the wire.
+func (h *AuthCodeHandler) ExecuteFlow(log *zerolog.Logger) (*oauth2.Token, error) {
+	fmt.Println("ExecuteFlow")
+	source := h.getRefreshTokenSource(log)
+	return getOauth2Token(source, log)
+}
+
 // OnRequest gets run before the request goes out on the wire.
 func (h *AuthCodeHandler) OnRequest(log *zerolog.Logger, request *http.Request) error {
 	if request.Header.Get("Authorization") == "" {
-		// No auth is set, so let's get the token either from a cache
-		// or generate a new one from the issuing server.
-		profile := cli.GetProfile()
-
-		params := url.Values{}
-		if h.getParamsFunc != nil {
-			// Backward-compatibility with old call style, only used internally.
-			params = h.getParamsFunc(profile)
-		}
-		for _, name := range h.Params {
-			params.Add(name, profile[name])
-		}
-
-		source := &AuthorizationCodeTokenSource{
-			ClientID:       h.ClientID,
-			AuthorizeURL:   h.AuthorizeURL,
-			TokenURL:       h.TokenURL,
-			RedirectURI:    h.RedirectURI,
-			EndpointParams: &params,
-			Scopes:         h.Scopes,
-		}
-
-		// Try to get a cached refresh token from the current profile and use
-		// it to wrap the auth code token source with a refreshing source.
-		refreshKey := "profiles." + viper.GetString("profile") + ".refresh"
-		refreshSource := RefreshTokenSource{
-			ClientID:       h.ClientID,
-			TokenURL:       h.TokenURL,
-			EndpointParams: &params,
-			RefreshToken:   cli.Cache.GetString(refreshKey),
-			TokenSource:    source,
-		}
-
-		return TokenHandler(refreshSource, log, request)
+		source := h.getRefreshTokenSource(log)
+		return TokenHandler(source, log, request)
 	}
 
 	return nil

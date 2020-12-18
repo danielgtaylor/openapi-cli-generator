@@ -33,14 +33,14 @@ func TestMatchValueReqBody(t *testing.T) {
 
 	// Bad body
 	req.Context.Set("request-body", `{"foo": {"bar": 2`)
-	value, err := GetMatchValue(req.Context, "request.body#foo..bar", nil, nil)
+	value, err := GetMatchValue(req.Context, "request.body#foo...bar", nil, nil)
 	assert.Error(t, err)
 
 	// Fix the body
 	req.Context.Set("request-body", `{"foo": {"bar": 2}}`)
 
 	// Bad JMESPath value
-	value, err = GetMatchValue(req.Context, "request.body#foo..bar", nil, nil)
+	value, err = GetMatchValue(req.Context, "request.body#foo...bar", nil, nil)
 	assert.Error(t, err)
 
 	// Correct query
@@ -73,7 +73,7 @@ func TestMatchValueResBody(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Invalid query
-	value, err := GetMatchValue(nil, "response.body#foo..bar", nil, decoded)
+	value, err := GetMatchValue(nil, "response.body#foo...bar", nil, decoded)
 	assert.Error(t, err)
 
 	// Valid query

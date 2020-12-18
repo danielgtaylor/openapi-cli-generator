@@ -9,7 +9,6 @@ import (
 
 	"github.com/rigetti/openapi-cli-generator/cli"
 	"github.com/rs/zerolog"
-	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 	"gopkg.in/h2non/gentleman.v2/context"
 )
@@ -29,11 +28,12 @@ func GetParams(f func(profile map[string]string) url.Values) func(*config) error
 	return func(c *config) error {
 		c.getParams = f
 		return nil
+
 	}
 }
 
 // Extra provides the names of additional parameters to use to store information
-// in user profiles. Use `cli.GetProfile("default")["name"]` to access it.
+// in user profiles. Use `cli.GetActiveProfile.Info("default")["name"]` to access it.
 func Extra(names ...string) func(*config) error {
 	return func(c *config) error {
 		c.extra = names
@@ -53,7 +53,7 @@ func Scopes(scopes ...string) func(*config) error {
 func TokenMiddleware(source oauth2.TokenSource, ctx *context.Context, h context.Handler) {
 	// Setup logger with the current profile.
 	log := ctx.Get("log").(*zerolog.Logger).
-		With().Str("profile", viper.GetString("profile")).Logger()
+		With().Str("profileName", cli.RunConfig.Settings.DefaultProfileName).Logger()
 
 	if err := TokenHandler(source, &log, ctx.Request); err != nil {
 		h.Error(ctx, err)
@@ -61,25 +61,17 @@ func TokenMiddleware(source oauth2.TokenSource, ctx *context.Context, h context.
 	}
 }
 
-// TokenHandler takes a token source, gets a token, and modifies a request to
-// add the token auth as a header. Uses the CLI cache to store tokens on a per-
-// profile basis between runs.
-func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.Request) error {
+func getOauth2Token(source oauth2.TokenSource, log *zerolog.Logger) (token *oauth2.Token, err error) {
 	var cached *oauth2.Token
 
-	// Load any existing token from the CLI's cache file.
-	expiresKey := "profiles." + viper.GetString("profile") + ".expires"
-	typeKey := "profiles." + viper.GetString("profile") + ".type"
-	tokenKey := "profiles." + viper.GetString("profile") + ".token"
-	refreshKey := "profiles." + viper.GetString("profile") + ".refresh"
-
-	expiry := cli.Cache.GetTime(expiresKey)
+	credentials := cli.RunConfig.GetCredentials()
+	expiry := credentials.TokenPayload.ExpiresAt()
 	if !expiry.IsZero() {
 		log.Debug().Msg("Loading token from cache.")
 		cached = &oauth2.Token{
-			AccessToken:  cli.Cache.GetString(tokenKey),
-			RefreshToken: cli.Cache.GetString(refreshKey),
-			TokenType:    cli.Cache.GetString(typeKey),
+			AccessToken:  credentials.TokenPayload.AccessToken,
+			RefreshToken: credentials.TokenPayload.RefreshToken,
+			TokenType:    credentials.TokenPayload.TokenType,
 			Expiry:       expiry,
 		}
 	}
@@ -90,31 +82,30 @@ func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.
 	}
 
 	// Get the next available token from the source.
-	token, err := source.Token()
+	token, err = source.Token()
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// TokenHandler takes a token source, gets a token, and modifies a request to
+// add the token auth as a header. Uses the CLI cache to store tokens on a per-
+// profile basis between runs.
+func TokenHandler(source oauth2.TokenSource, log *zerolog.Logger, request *http.Request) error {
+	token, err := getOauth2Token(source, log)
 	if err != nil {
 		return err
 	}
 
-	if cached == nil || (token.AccessToken != cached.AccessToken) {
-		// Token either didn't exist in the cache or has changed, so let's write
-		// the new values to the CLI cache.
-		log.Debug().Msg("Token refreshed. Updating cache.")
+	// Token either didn't exist in the cache or has changed, so let's write
+	// the new values to the CLI cache.
+	log.Debug().Msg("Token refreshed. Updating cache.")
 
-		cli.Cache.Set(expiresKey, token.Expiry)
-		cli.Cache.Set(typeKey, token.Type())
-		cli.Cache.Set(tokenKey, token.AccessToken)
-
-		if token.RefreshToken != "" {
-			// Only set the refresh token if present. This prevents overwriting it
-			// after using a refresh token, because the newly returned token won't
-			// have another refresh token set on it (you keep using the same one).
-			cli.Cache.Set(refreshKey, token.RefreshToken)
-		}
-
-		// Save the cache to disk.
-		if err := cli.Cache.WriteConfig(); err != nil {
-			return err
-		}
+	err = cli.RunConfig.UpdateCredentialsToken(cli.RunConfig.GetProfile().CredentialsName, token)
+	if err != nil {
+		return err
 	}
 
 	// Set the auth header so the request can be made.

@@ -9,7 +9,6 @@ import (
 	"github.com/alecthomas/chroma/quick"
 	"github.com/alecthomas/chroma/styles"
 	jmespath "github.com/danielgtaylor/go-jmespath-plus"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 )
 
@@ -66,8 +65,8 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 		return nil
 	}
 
-	if viper.GetString("query") != "" {
-		result, err := jmespath.Search(viper.GetString("query"), data)
+	if RunConfig.GetProfile().CLI.Query != "" {
+		result, err := jmespath.Search(RunConfig.GetProfile().CLI.Query, data)
 
 		if err != nil {
 			return err
@@ -83,7 +82,7 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 
 	handled := false
 	kind := reflect.TypeOf(data).Kind()
-	if viper.GetBool("raw") && kind == reflect.String {
+	if RunConfig.GetProfile().CLI.Raw && kind == reflect.String {
 		handled = true
 		dStr := data.(string)
 		encoded = []byte(dStr)
@@ -93,7 +92,7 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 			// Looks like JSON to me!
 			lexer = "json"
 		}
-	} else if viper.GetBool("raw") && kind == reflect.Slice {
+	} else if RunConfig.GetProfile().CLI.Raw && kind == reflect.Slice {
 		scalars := true
 
 		for _, item := range data.([]interface{}) {
@@ -118,7 +117,7 @@ func (f *DefaultFormatter) Format(data interface{}) error {
 	}
 
 	if !handled {
-		if viper.GetString("output-format") == "yaml" {
+		if RunConfig.GetProfile().CLI.OutputFormat == "yaml" {
 			encoded, err = yaml.Marshal(data)
 
 			if err != nil {

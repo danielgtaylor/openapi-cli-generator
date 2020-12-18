@@ -12,7 +12,7 @@ type config struct {
 }
 
 // Extra provides the names of additional parameters to use to store information
-// in user profiles. Use `cli.GetProfile("default")["name"]` to access it.
+// in user profiles. Use `cli.GetProfileInfo("default")["name"]` to access it.
 func Extra(names ...string) func(*config) error {
 	return func(c *config) error {
 		c.extra = names

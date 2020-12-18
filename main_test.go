@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,7 +64,9 @@ func TestMain(m *testing.M) {
 
 func TestEchoSuccess(t *testing.T) {
 	// Call the precompiled executable CLI to hit our test server.
-	out, err := exec.Command("sh", "-c", "example-cli echo hello: world --echo-query=foo --x-request-id bar").CombinedOutput()
+	// Note, `echo-query` has `x-cli-name` set in OAS definition.
+
+	out, err := exec.Command("sh", "-c", "example-cli echo hello: world --api-url http://127.0.0.1:8005 --echo-query=foo --x-request-id bar").CombinedOutput()
 	if err != nil {
 		fmt.Println(string(out))
 		panic(err)
@@ -71,3 +74,95 @@ func TestEchoSuccess(t *testing.T) {
 
 	assert.JSONEq(t, "{\"hello\": \"world\", \"q\": \"foo\", \"request-id\": \"bar\"}", string(out))
 }
+
+func TestConfiguration(t *testing.T) {
+	t.Run("can set and read settings", func(t *testing.T) {
+		var out []byte
+		var err error
+		out, err = exec.Command("sh", "-c", "example-cli config set default_profile_name bogus").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+
+		out, err = exec.Command("sh", "-c", "example-cli config get default_profile_name").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		fmt.Println(string(out))
+		assert.Equal(t, "bogus", strings.TrimSpace(string(out)))
+	})
+}
+
+func TestAuth(t *testing.T) {
+	t.Run("can add and list auth servers", func(t *testing.T) {
+		var out []byte
+		var err error
+		out, err = exec.Command("sh", "-c", "example-cli auth add-server auth1 --issuer https://auth.test.sh --client-id 01").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+
+		out, err = exec.Command("sh", "-c", "example-cli auth list-servers").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		assert.Contains(t,  string(out),"| auth1   |        01 | https://auth.test.sh |")
+	})
+
+	t.Run("can get and set existing secrets.toml values", func(t *testing.T) {
+		var out []byte
+		var err error
+		out, err = exec.Command("sh", "-c", "example-cli auth get credentials.default.token_payload.access_token").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		assert.Equal(t, "access", strings.TrimSpace(string(out)))
+
+		out, err = exec.Command("sh", "-c", "example-cli auth get credentials.default.token_payload.refresh_token").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		assert.Equal(t, "refresh", strings.TrimSpace(string(out)))
+	})
+
+	t.Run("can get and set new secrets.toml values", func(t *testing.T) {
+		var out []byte
+		var err error
+		out, err = exec.Command("sh", "-c", "example-cli auth set credentials.new.token_payload.access_token newAccess").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		assert.Equal(t, "", strings.TrimSpace(string(out)))
+
+		out, err = exec.Command("sh", "-c", "example-cli auth get credentials.new.token_payload.access_token").CombinedOutput()
+		if err != nil {
+			fmt.Println(string(out))
+			panic(err)
+		}
+		assert.Equal(t, "newAccess", strings.TrimSpace(string(out)))
+	})
+}
+
+func TestGlobalFlags(t *testing.T) {
+	t.Run("global flags are printed separately", func(t *testing.T) {
+		out, _ := exec.Command("sh", "-c", "example-cli echo --help").CombinedOutput()
+		t.Log(string(out))
+		assert.Contains(t, string(out), "Global Flags:")
+		assert.Contains(t, string(out), "--api-url string")
+		assert.Contains(t, string(out), "--auth-server-name string")
+		assert.Contains(t, string(out), "--credentials-name string")
+		assert.Contains(t, string(out), "--output-format string")
+		assert.Contains(t, string(out), "--profile-name string")
+		assert.Contains(t, string(out), "--raw")
+	})
+
+}
+
+

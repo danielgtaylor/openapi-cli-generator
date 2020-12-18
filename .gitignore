@@ -1,5 +1,7 @@
 vendor
+.idea/
 .vscode
 .idea
 test
 example-cli/main.go-e
+tmp/

@@ -22,19 +22,11 @@ func execute(cmd string) string {
 }
 
 func TestInit(t *testing.T) {
-	Cache = nil
 	Client = nil
 	Root = nil
 
 	viper.Set("color", true)
 
-	Init(&Config{
-		AppName: "test",
-	})
-
-	assert.NotNil(t, Cache)
-	assert.NotNil(t, Client)
-	assert.NotNil(t, Root)
 }
 
 func TestHelpCommands(t *testing.T) {
@@ -43,7 +35,7 @@ func TestHelpCommands(t *testing.T) {
 	})
 
 	out := execute("help-config")
-	assert.Contains(t, out, "CLI Configuration")
+	assert.Contains(t, out, "CLI ClientConfiguration")
 
 	out = execute("help-input")
 	assert.Contains(t, out, "CLI Request Input")

@@ -22,10 +22,13 @@ func NewClientCredentialsHandler(tokenURL string, keys, params, scopes []string)
 
 // ClientCredentialsHandler implements the Client Credentials OAuth2 flow.
 type ClientCredentialsHandler struct {
-	TokenURL string
-	Keys     []string
-	Params   []string
-	Scopes   []string
+	TokenURL     string
+	Keys         []string
+	Params       []string
+	Scopes       []string
+	ClientID     string
+	ClientSecret string
+	Values       map[string]interface{}
 
 	getParamsFunc func(profile map[string]string) url.Values
 }
@@ -35,38 +38,39 @@ func (h *ClientCredentialsHandler) ProfileKeys() []string {
 	return h.Keys
 }
 
+// ExecuteFlow gets run before the request goes out on the wre.
+func (h *ClientCredentialsHandler) getSource(log *zerolog.Logger) oauth2.TokenSource {
+	// No auth is set, so let's get the token either from a cache
+	// or generate a new one from the issuing server.
+	clientID := h.ClientID
+	clientSecret := h.ClientSecret
+
+	params := url.Values{}
+	for _, name := range h.Params {
+		value, _ := h.Values[name]
+		if s, ok := value.(string); ok {
+			params.Add(name, s)
+		}
+	}
+
+	return (&clientcredentials.Config{
+		ClientID:       clientID,
+		ClientSecret:   clientSecret,
+		TokenURL:       h.TokenURL,
+		EndpointParams: params,
+		Scopes:         h.Scopes,
+	}).TokenSource(oauth2.NoContext)
+
+}
+func (h *ClientCredentialsHandler) ExecuteFlow(log *zerolog.Logger) (*oauth2.Token, error) {
+	source := h.getSource(log)
+	return getOauth2Token(source, log)
+}
+
 // OnRequest gets run before the request goes out on the wire.
 func (h *ClientCredentialsHandler) OnRequest(log *zerolog.Logger, request *http.Request) error {
 	if request.Header.Get("Authorization") == "" {
-		// No auth is set, so let's get the token either from a cache
-		// or generate a new one from the issuing server.
-		profile := cli.GetProfile()
-
-		if profile["client_id"] == "" {
-			return ErrInvalidProfile
-		}
-
-		if profile["client_secret"] == "" {
-			return ErrInvalidProfile
-		}
-
-		params := url.Values{}
-		if h.getParamsFunc != nil {
-			// Backward-compatibility with old call style, only used internally.
-			params = h.getParamsFunc(profile)
-		}
-		for _, name := range h.Params {
-			params.Add(name, profile[name])
-		}
-
-		source := (&clientcredentials.Config{
-			ClientID:       profile["client_id"],
-			ClientSecret:   profile["client_secret"],
-			TokenURL:       h.TokenURL,
-			EndpointParams: params,
-			Scopes:         h.Scopes,
-		}).TokenSource(oauth2.NoContext)
-
+		source := h.getSource(log)
 		return TokenHandler(source, log, request)
 	}
 

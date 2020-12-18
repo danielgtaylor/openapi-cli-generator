@@ -8,13 +8,14 @@ import (
 	"log"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"text/template"
 
-	"github.com/rigetti/openapi-cli-generator/shorthand"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/rigetti/openapi-cli-generator/shorthand"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -118,6 +119,8 @@ type Imports struct {
 type OpenAPI struct {
 	Imports      Imports
 	Name         string
+	PackageName  string
+	CommandName  string
 	GoName       string
 	PublicGoName string
 	Title        string
@@ -129,7 +132,7 @@ type OpenAPI struct {
 
 // ProcessAPI returns the API description to be used with the commands template
 // for a loaded and dereferenced OpenAPI 3 document.
-func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
+func ProcessAPI(shortName, cmdName, packageName string, api *openapi3.Swagger) *OpenAPI {
 	apiName := shortName
 	if api.Info.Extensions[ExtName] != nil {
 		apiName = extStr(api.Info.Extensions[ExtName])
@@ -142,8 +145,10 @@ func ProcessAPI(shortName string, api *openapi3.Swagger) *OpenAPI {
 
 	result := &OpenAPI{
 		Name:         apiName,
-		GoName:       toGoName(shortName, false),
-		PublicGoName: toGoName(shortName, true),
+		CommandName:  cmdName,
+		GoName:       toGoName(cmdName, false),
+		PackageName:  packageName,
+		PublicGoName: toGoName(cmdName, true),
 		Title:        api.Info.Title,
 		Description:  escapeString(apiDescription),
 	}
@@ -420,52 +425,21 @@ func escapeString(value string) string {
 }
 
 // Generates the "slug" string for an operation.
-func slug(operationID string) string {
-	return toCamelInitCase(operationID, false)
+func slug(s string) string {
+	return toKebabCase(s)
+}
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func toKebabCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}-${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}-${2}")
+	return strings.ToLower(snake)
 }
 
 var uppercaseAcronym = map[string]string{
 	"ID": "id",
-}
-
-// Converts a string to CamelCase. From https://github.com/iancoleman/strcase/blob/5e0ad225083860c70d196c6ebbb2218518df8ccd/camel.go
-func toCamelInitCase(s string, initCase bool) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return s
-	}
-	if a, ok := uppercaseAcronym[s]; ok {
-		s = a
-	}
-
-	n := strings.Builder{}
-	n.Grow(len(s))
-	capNext := initCase
-	for i, v := range []byte(s) {
-		vIsCap := v >= 'A' && v <= 'Z'
-		vIsLow := v >= 'a' && v <= 'z'
-		if capNext {
-			if vIsLow {
-				v += 'A'
-				v -= 'a'
-			}
-		} else if i == 0 {
-			if vIsCap {
-				v += 'a'
-				v -= 'A'
-			}
-		}
-		if vIsCap || vIsLow {
-			n.WriteByte(v)
-			capNext = false
-		} else if vIsNum := v >= '0' && v <= '9'; vIsNum {
-			n.WriteByte(v)
-			capNext = true
-		} else {
-			capNext = v == '_' || v == ' ' || v == '-' || v == '.'
-		}
-	}
-	return n.String()
 }
 
 func usage(name string, requiredParams []*Param) string {
@@ -631,8 +605,9 @@ func writeFormattedFile(filename string, data []byte) {
 	}
 }
 
-func initCmd(cmd *cobra.Command, args []string) {
-	if _, err := os.Stat("main.go"); err == nil {
+func initCmd(cmd *cobra.Command, args []string, genOptions generateOptions) {
+	out := *genOptions.out
+	if _, err := os.Stat(out); err == nil {
 		fmt.Println("Refusing to overwrite existing main.go")
 		return
 	}
@@ -644,8 +619,9 @@ func initCmd(cmd *cobra.Command, args []string) {
 	}
 
 	templateData := map[string]string{
-		"Name":    args[0],
-		"NameEnv": strings.Replace(strings.ToUpper(args[0]), "-", "_", -1),
+		"AuthServerName": args[0],
+		"PackageName":    *genOptions.packageName,
+		"NameEnv":        strings.Replace(strings.ToUpper(args[0]), "-", "_", -1),
 	}
 
 	var sb strings.Builder
@@ -654,10 +630,10 @@ func initCmd(cmd *cobra.Command, args []string) {
 		panic(err)
 	}
 
-	writeFormattedFile("main.go", []byte(sb.String()))
+	writeFormattedFile(out, []byte(sb.String()))
 }
 
-func generate(cmd *cobra.Command, args []string) {
+func generate(cmd *cobra.Command, args []string, genOptions generateOptions) {
 	data, err := ioutil.ReadFile(args[0])
 	if err != nil {
 		log.Fatal(err)
@@ -685,7 +661,11 @@ func generate(cmd *cobra.Command, args []string) {
 
 	shortName := strings.TrimSuffix(path.Base(args[0]), ".yaml")
 
-	templateData := ProcessAPI(shortName, swagger)
+	appName := *genOptions.appName
+	if appName == "" {
+		appName = shortName
+	}
+	templateData := ProcessAPI(shortName, appName, *genOptions.packageName, swagger)
 
 	var sb strings.Builder
 	err = tmpl.Execute(&sb, templateData)
@@ -693,25 +673,48 @@ func generate(cmd *cobra.Command, args []string) {
 		panic(err)
 	}
 
-	writeFormattedFile(shortName+".go", []byte(sb.String()))
+	out := *genOptions.out
+	if out == "" {
+		out = fmt.Sprintf("%s.go", shortName)
+	}
+	writeFormattedFile(out, []byte(sb.String()))
+}
+
+type generateOptions struct {
+	appName     *string
+	packageName *string
+	out         *string
 }
 
 func main() {
 	root := &cobra.Command{}
 
-	root.AddCommand(&cobra.Command{
+	initOptions := generateOptions{}
+	initCommand := &cobra.Command{
 		Use:   "init <app-name>",
 		Short: "Initialize and generate a `main.go` file for your project",
 		Args:  cobra.ExactArgs(1),
-		Run:   initCmd,
-	})
+		Run: func(cmd *cobra.Command, args []string) {
+			initCmd(cmd, args, initOptions)
+		},
+	}
+	initOptions.out = initCommand.Flags().StringP("out", "o", "main.go", "Output path for the generated file.")
+	initOptions.packageName = initCommand.Flags().StringP("packageName", "p", "main", "Package name of generated file")
+	root.AddCommand(initCommand)
 
-	root.AddCommand(&cobra.Command{
+	genOptions := generateOptions{}
+	generateCommand := &cobra.Command{
 		Use:   "generate <api-spec>",
 		Short: "Generate a `commands.go` file from an OpenAPI spec",
 		Args:  cobra.ExactArgs(1),
-		Run:   generate,
-	})
+		Run: func(cmd *cobra.Command, args []string) {
+			generate(cmd, args, genOptions)
+		},
+	}
+	genOptions.out = generateCommand.Flags().StringP("out", "o", "", "Output path for the generated file. If not provided, will default to name of <api-spec>.")
+	genOptions.appName = generateCommand.Flags().String("name", "", "Name of CLI application and top level command.")
+	genOptions.packageName = generateCommand.Flags().StringP("packageName", "p", "main", "Package name of generated file")
+	root.AddCommand(generateCommand)
 
 	root.Execute()
 }
