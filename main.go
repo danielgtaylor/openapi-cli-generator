@@ -120,6 +120,7 @@ type OpenAPI struct {
 	Imports      Imports
 	Name         string
 	PackageName  string
+	CommandName  string
 	GoName       string
 	PublicGoName string
 	Title        string
@@ -144,6 +145,7 @@ func ProcessAPI(shortName, cmdName, packageName string, api *openapi3.Swagger) *
 
 	result := &OpenAPI{
 		Name:         apiName,
+		CommandName:  cmdName,
 		GoName:       toGoName(cmdName, false),
 		PackageName:  packageName,
 		PublicGoName: toGoName(cmdName, true),

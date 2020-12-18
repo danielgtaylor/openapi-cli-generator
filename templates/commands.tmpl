@@ -43,6 +43,7 @@ import (
 {{ $name := .Name }}
 {{ $api := .GoName }}
 {{ $apiPublic := .PublicGoName }}
+{{ $commandName := .CommandName }}
 
 var {{ $api }}Subcommand bool
 
@@ -62,7 +63,7 @@ func {{ $api }}Servers() []map[string]string {
 	func {{ $apiPublic }}{{ .GoName }}({{ range .RequiredParams }}{{ .GoName }} string, {{ end }}params *viper.Viper{{ if .CanHaveBody }}, body string{{ end }}) (*gentleman.Response, {{ .ReturnType }}, error) {
 		handlerPath := "{{ .HandlerName }}"
 		if {{ $api }}Subcommand {
-			handlerPath = "{{ $name }} " + handlerPath
+			handlerPath = "{{ $commandName }} " + handlerPath
 		}
 
 		server := cli.RunConfig.GetProfile().ApiURL
@@ -175,7 +176,7 @@ func {{ $api }}Register(subcommand bool) (root *cobra.Command) {
 
 	if subcommand {
 		root = &cobra.Command{
-			Use: "{{ $name }}",
+			Use: "{{ .CommandName }}",
 			Short: "{{ .Title }}",
 			Long: cli.Markdown("{{ .Description }}"),
 		}
