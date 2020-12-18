@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/olekukonko/tablewriter"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cast"
@@ -321,13 +322,72 @@ func (cc ClientConfiguration) write(filePath string, updates map[string]interfac
 	return
 }
 
-func BuildConfigCommands() (configCommand *cobra.Command) {
+func BuildSettingsCommands() (configCommand *cobra.Command) {
 	configCommand = &cobra.Command{
-		Use:   "config",
-		Short: "Interact with configuration",
+		Use:   "settings",
+		Short: "Interact with your settings.toml file",
 	}
-	configCommand.AddCommand(buildConfigGetCommand(), buildConfigSetCommand())
+	configCommand.AddCommand(
+		buildSettingsAddAuthServerCommand(),
+		buildSettingsListAuthServersCommand(),
+		buildSettingsGetCommand(), 
+		buildSettingsSetCommand())
 
+	return
+}
+
+func buildSettingsAddAuthServerCommand() (cmd *cobra.Command) {
+	var clientID string
+	var issuer string
+	cmd = &cobra.Command{
+		Use:   "add-auth-server",
+		Short: "Add a new authentication server",
+		Args:  cobra.ExactArgs(1),
+		Run:  func(cmd *cobra.Command, args []string) {
+			logger := log.With().Str("profile", RunConfig.ProfileName).Logger()
+
+			authServerName := strings.Replace(args[0], ".", "-", -1)
+			_, exists := RunConfig.Settings.AuthServers[authServerName]
+			if exists {
+				logger.Fatal().Msgf("credential %q already exists", authServerName)
+			}
+
+			updates := make(map[string]interface{})
+			updates[fmt.Sprintf("auth_servers.%s.issuer", authServerName)] = issuer
+			updates[fmt.Sprintf("auth_servers.%s.client_id", authServerName)] = clientID
+			err := RunConfig.write(RunConfig.settingsPath, updates)
+			if err != nil {
+				logger.Fatal().Err(err).Msg("Failed to write updated settings")
+			}
+		},
+	}
+	cmd.Flags().StringVar(&clientID, "client-id", "", "")
+	cmd.Flags().StringVar(&issuer, "issuer", "", "")
+
+	return
+}
+
+func buildSettingsListAuthServersCommand() (cmd *cobra.Command) {
+	cmd = &cobra.Command{
+		Use:     "list-auth-servers",
+		Short:   "List available authentication servers",
+		Args:    cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			authServers := RunConfig.Settings.AuthServers
+			if authServers != nil {
+				table := tablewriter.NewWriter(os.Stdout)
+				table.SetHeader([]string{"Name", "Client ID", "Issuer"})
+
+				// For each type name, draw a table with the relevant profileName keys
+				for authServerName, authServer := range authServers {
+					table.Append([]string{authServerName, authServer.ClientID, authServer.Issuer})
+				}
+				table.Render()
+			} else {
+				fmt.Printf("No authentication servers configured. Use `%s auth addServer` to add one.\n", Root.CommandPath())
+			}
+		},
+	}
 	return
 }
 
@@ -364,7 +424,7 @@ func runConfig(filePath string, topLevel interface{}, args []string) {
 	}
 }
 
-func buildConfigGetCommand() (cmd *cobra.Command) {
+func buildSettingsGetCommand() (cmd *cobra.Command) {
 	cmd = &cobra.Command{
 		Use:   "get",
 		Short: "Get a value from settings.toml",
@@ -375,7 +435,7 @@ func buildConfigGetCommand() (cmd *cobra.Command) {
 	}
 	return
 }
-func buildConfigSetCommand() (cmd *cobra.Command) {
+func buildSettingsSetCommand() (cmd *cobra.Command) {
 	cmd = &cobra.Command{
 		Use:   "set",
 		Short: "Set a value in settings.toml",

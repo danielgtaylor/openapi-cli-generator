@@ -31,7 +31,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cli.Root.AddCommand(cli.BuildAuthCommands(), cli.BuildConfigCommands())
+	cli.Root.AddCommand(cli.BuildSettingsCommands(), cli.BuildSecretsCommands())
 
 	cli.Root.PersistentFlags().AddFlagSet(globalFlagSet)
 

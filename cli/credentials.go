@@ -31,59 +31,26 @@ var AuthHandlers = make(map[string]AuthHandler)
 
 var authInitialized bool
 
-// BuildAuthCommands sets up basic commands and the credentials file so that new auth
+// BuildSecretsCommands sets up basic commands and the credentials file so that new auth
 // handlers can be registered. This MUST be called only after auth handlers have
 // been set up through UseAuth.
-func BuildAuthCommands() (cmd *cobra.Command) {
+func BuildSecretsCommands() (cmd *cobra.Command) {
 	// Add base auth commands
 	cmd = &cobra.Command{
-		Use:   "auth",
-		Short: "Authentication settings",
+		Use:   "secrets",
+		Short: "Interact with your secrets.toml file",
 	}
 
 	cmd.AddCommand(
-		buildAuthAddServersCommand(),
-		buildAuthAddCredentialsCommand(),
-		buildAuthListServersCommand(),
-		buildAuthListCredentialsCommand(),
-		buildAuthGetCommand(),
-		buildAuthSetCommand())
+		buildSecretsAddCredentialsCommand(),
+		buildSecretsListCredentialsCommand(),
+		buildSecretsGetCommand(),
+		buildSecretsSetCommand())
 
 	return
 }
 
-func buildAuthAddServersCommand() (cmd *cobra.Command) {
-	var clientID string
-	var issuer string
-	cmd = &cobra.Command{
-		Use:   "add-server",
-		Short: "Add a new authentication server",
-		Args:  cobra.ExactArgs(1),
-		Run:  func(cmd *cobra.Command, args []string) {
-			logger := log.With().Str("profile", RunConfig.ProfileName).Logger()
-
-			authServerName := strings.Replace(args[0], ".", "-", -1)
-			_, exists := RunConfig.Settings.AuthServers[authServerName]
-			if exists {
-				logger.Fatal().Msgf("credential %q already exists", authServerName)
-			}
-
-			updates := make(map[string]interface{})
-			updates[fmt.Sprintf("auth_servers.%s.issuer", authServerName)] = issuer
-			updates[fmt.Sprintf("auth_servers.%s.client_id", authServerName)] = clientID
-			err := RunConfig.write(RunConfig.settingsPath, updates)
-			if err != nil {
-				logger.Fatal().Err(err)
-			}
-		},
-	}
-	cmd.Flags().StringVar(&clientID, "client-id", "", "")
-	cmd.Flags().StringVar(&issuer, "issuer", "", "")
-
-	return
-}
-
-func buildAuthAddCredentialsCommand() (cmd *cobra.Command) {
+func buildSecretsAddCredentialsCommand() (cmd *cobra.Command) {
 	var authServerName string
 
 	cmd = &cobra.Command{
@@ -115,7 +82,7 @@ func buildAuthAddCredentialsCommand() (cmd *cobra.Command) {
 	return
 }
 
-func buildAuthListCredentialsCommand() (cmd *cobra.Command) {
+func buildSecretsListCredentialsCommand() (cmd *cobra.Command) {
 	cmd = &cobra.Command{
 		Use:     "list-credentials",
 		Short:   "List available credentials",
@@ -138,32 +105,7 @@ func buildAuthListCredentialsCommand() (cmd *cobra.Command) {
 	return
 }
 
-func buildAuthListServersCommand() (cmd *cobra.Command) {
-	// parent.PersistentFlags().Add
-	cmd = &cobra.Command{
-		Use:     "list-servers",
-		Short:   "List available authentication servers",
-		Args:    cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			authServers := RunConfig.Settings.AuthServers
-			if authServers != nil {
-				table := tablewriter.NewWriter(os.Stdout)
-				table.SetHeader([]string{"Name", "Client ID", "Issuer"})
-
-				// For each type name, draw a table with the relevant profileName keys
-				for authServerName, authServer := range authServers {
-					table.Append([]string{authServerName, authServer.ClientID, authServer.Issuer})
-				}
-				table.Render()
-			} else {
-				fmt.Printf("No authentication servers configured. Use `%s auth addServer` to add one.\n", Root.CommandPath())
-			}
-		},
-	}
-	return
-}
-
-func buildAuthGetCommand() (cmd *cobra.Command) {
+func buildSecretsGetCommand() (cmd *cobra.Command) {
 	cmd = &cobra.Command{
 		Use:   "get",
 		Short: "Get a value from secrets.toml",
@@ -175,7 +117,7 @@ func buildAuthGetCommand() (cmd *cobra.Command) {
 	return
 }
 
-func buildAuthSetCommand() (cmd *cobra.Command) {
+func buildSecretsSetCommand() (cmd *cobra.Command) {
 	cmd = &cobra.Command{
 		Use:   "set",
 		Short: "Set a value in secrets.toml",

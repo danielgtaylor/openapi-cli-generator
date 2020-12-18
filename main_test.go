@@ -79,13 +79,13 @@ func TestConfiguration(t *testing.T) {
 	t.Run("can set and read settings", func(t *testing.T) {
 		var out []byte
 		var err error
-		out, err = exec.Command("sh", "-c", "example-cli config set default_profile_name bogus").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli settings set default_profile_name bogus").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
 		}
 
-		out, err = exec.Command("sh", "-c", "example-cli config get default_profile_name").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli settings get default_profile_name").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
@@ -99,13 +99,13 @@ func TestAuth(t *testing.T) {
 	t.Run("can add and list auth servers", func(t *testing.T) {
 		var out []byte
 		var err error
-		out, err = exec.Command("sh", "-c", "example-cli auth add-server auth1 --issuer https://auth.test.sh --client-id 01").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli settings add-auth-server auth1 --issuer https://auth.test.sh --client-id 01").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
 		}
 
-		out, err = exec.Command("sh", "-c", "example-cli auth list-servers").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli settings list-auth-servers").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
@@ -116,14 +116,14 @@ func TestAuth(t *testing.T) {
 	t.Run("can get and set existing secrets.toml values", func(t *testing.T) {
 		var out []byte
 		var err error
-		out, err = exec.Command("sh", "-c", "example-cli auth get credentials.default.token_payload.access_token").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli secrets get credentials.default.token_payload.access_token").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
 		}
 		assert.Equal(t, "access", strings.TrimSpace(string(out)))
 
-		out, err = exec.Command("sh", "-c", "example-cli auth get credentials.default.token_payload.refresh_token").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli secrets get credentials.default.token_payload.refresh_token").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
@@ -134,14 +134,14 @@ func TestAuth(t *testing.T) {
 	t.Run("can get and set new secrets.toml values", func(t *testing.T) {
 		var out []byte
 		var err error
-		out, err = exec.Command("sh", "-c", "example-cli auth set credentials.new.token_payload.access_token newAccess").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli secrets set credentials.new.token_payload.access_token newAccess").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
 		}
 		assert.Equal(t, "", strings.TrimSpace(string(out)))
 
-		out, err = exec.Command("sh", "-c", "example-cli auth get credentials.new.token_payload.access_token").CombinedOutput()
+		out, err = exec.Command("sh", "-c", "example-cli secrets get credentials.new.token_payload.access_token").CombinedOutput()
 		if err != nil {
 			fmt.Println(string(out))
 			panic(err)
