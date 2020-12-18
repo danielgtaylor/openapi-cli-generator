@@ -14,8 +14,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/rigetti/openapi-cli-generator/shorthand"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/rigetti/openapi-cli-generator/shorthand"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -119,6 +119,7 @@ type Imports struct {
 type OpenAPI struct {
 	Imports      Imports
 	Name         string
+	PackageName  string
 	GoName       string
 	PublicGoName string
 	Title        string
@@ -130,7 +131,7 @@ type OpenAPI struct {
 
 // ProcessAPI returns the API description to be used with the commands template
 // for a loaded and dereferenced OpenAPI 3 document.
-func ProcessAPI(shortName, cmdName string, api *openapi3.Swagger) *OpenAPI {
+func ProcessAPI(shortName, cmdName, packageName string, api *openapi3.Swagger) *OpenAPI {
 	apiName := shortName
 	if api.Info.Extensions[ExtName] != nil {
 		apiName = extStr(api.Info.Extensions[ExtName])
@@ -144,6 +145,7 @@ func ProcessAPI(shortName, cmdName string, api *openapi3.Swagger) *OpenAPI {
 	result := &OpenAPI{
 		Name:         apiName,
 		GoName:       toGoName(cmdName, false),
+		PackageName:  packageName,
 		PublicGoName: toGoName(cmdName, true),
 		Title:        api.Info.Title,
 		Description:  escapeString(apiDescription),
@@ -615,8 +617,9 @@ func initCmd(cmd *cobra.Command, args []string, genOptions generateOptions) {
 	}
 
 	templateData := map[string]string{
-		"AuthServerName":    args[0],
-		"NameEnv": strings.Replace(strings.ToUpper(args[0]), "-", "_", -1),
+		"AuthServerName": args[0],
+		"PackageName":    *genOptions.packageName,
+		"NameEnv":        strings.Replace(strings.ToUpper(args[0]), "-", "_", -1),
 	}
 
 	var sb strings.Builder
@@ -660,7 +663,7 @@ func generate(cmd *cobra.Command, args []string, genOptions generateOptions) {
 	if appName == "" {
 		appName = shortName
 	}
-	templateData := ProcessAPI(shortName, appName, swagger)
+	templateData := ProcessAPI(shortName, appName, *genOptions.packageName, swagger)
 
 	var sb strings.Builder
 	err = tmpl.Execute(&sb, templateData)
@@ -676,8 +679,9 @@ func generate(cmd *cobra.Command, args []string, genOptions generateOptions) {
 }
 
 type generateOptions struct {
-	appName *string
-	out *string
+	appName     *string
+	packageName *string
+	out         *string
 }
 
 func main() {
@@ -688,11 +692,12 @@ func main() {
 		Use:   "init <app-name>",
 		Short: "Initialize and generate a `main.go` file for your project",
 		Args:  cobra.ExactArgs(1),
-		Run:   func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, args []string) {
 			initCmd(cmd, args, initOptions)
 		},
 	}
 	initOptions.out = initCommand.Flags().StringP("out", "o", "main.go", "Output path for the generated file.")
+	initOptions.packageName = initCommand.Flags().StringP("packageName", "p", "main", "Package name of generated file")
 	root.AddCommand(initCommand)
 
 	genOptions := generateOptions{}
@@ -700,12 +705,13 @@ func main() {
 		Use:   "generate <api-spec>",
 		Short: "Generate a `commands.go` file from an OpenAPI spec",
 		Args:  cobra.ExactArgs(1),
-		Run:   func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, args []string) {
 			generate(cmd, args, genOptions)
 		},
 	}
 	genOptions.out = generateCommand.Flags().StringP("out", "o", "", "Output path for the generated file. If not provided, will default to name of <api-spec>.")
 	genOptions.appName = generateCommand.Flags().String("name", "", "Name of CLI application and top level command.")
+	genOptions.packageName = generateCommand.Flags().StringP("packageName", "p", "main", "Package name of generated file")
 	root.AddCommand(generateCommand)
 
 	root.Execute()
