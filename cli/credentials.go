@@ -66,14 +66,17 @@ func buildSecretsAddCredentialsCommand() (cmd *cobra.Command) {
 				logger.Fatal().Msgf("credential %q already exists", credentialName)
 			}
 
-			handler := AuthHandlers[authServerName]
+			handler, ok := AuthHandlers[authServerName]
+			if !ok {
+				logger.Fatal().Msgf("auth server %q oauth2 flow has not been set up", authServerName)
+			}
 			token, err := handler.ExecuteFlow(&logger)
 			if err != nil {
-				logger.Fatal().Err(err)
+				logger.Fatal().Err(err).Msg("error while authenticating")
 			}
 			err = RunConfig.UpdateCredentialsToken(credentialName, token)
 			if err != nil {
-				logger.Fatal().Err(err)
+				logger.Fatal().Err(err).Msg("an error occurred writing credentials to file")
 			}
 		},
 	}

@@ -420,7 +420,7 @@ func runConfig(filePath string, topLevel interface{}, args []string) {
 	updates[path] = value
 	err = RunConfig.write(filePath, updates)
 	if err != nil {
-		logger.Fatal().Err(err)
+		logger.Fatal().Err(err).Msgf("an error occurred writing updates to %q", filePath)
 	}
 }
 
