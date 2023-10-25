@@ -476,7 +476,7 @@ func getParams(path *openapi3.PathItem, httpMethod string) []*Param {
 				Name:        p.Value.Name,
 				CLIName:     cliName,
 				GoName:      toGoName("param "+cliName, false),
-				Description: description,
+				Description: escapeString(description),
 				In:          p.Value.In,
 				Required:    p.Value.Required,
 				Type:        t,
